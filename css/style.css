@@ -179,6 +179,12 @@ body {
   justify-content: center;
 }
 
+.privacy-link {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
 .login-label {
   font-size: 16px;
   color: #e8c9a0;
