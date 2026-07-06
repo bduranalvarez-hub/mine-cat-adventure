@@ -1,4 +1,4 @@
-# Mine Cat Carnage 🐈🛒
+# Mine Cat Adventure 🐈🛒
 
 Runner infinito para móviles inspirado en *Mine Cart Carnage* (Donkey Kong
 Country), protagonizado por gatos sphynx. Toca la pantalla para saltar,
