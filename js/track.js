@@ -4,7 +4,7 @@
 //  - points: perfil base de altura (colinas), interpolado suave.
 //  - segments: tramos con riel [x0, x1]; entre ellos hay huecos mortales.
 //  - cada tramo tiene además su propio desnivel `dy`: el riel siguiente
-//    puede estar en un saliente más alto o más bajo, como en DKC.
+//    puede estar en un saliente más alto o más bajo.
 // Las alturas son coordenadas de mundo: 0 es la línea base, +y es abajo.
 const Track = (() => {
   const MAX_RISE = 90; // subida máxima saltable entre tramos
@@ -155,8 +155,8 @@ const Track = (() => {
     return path;
   }
 
-  // Vía estilo DKC: dos rieles gruesos y redondeados en perspectiva
-  // (el trasero arriba y detrás), traviesas de madera entre ambos y
+  // Vía de dos rieles gruesos y redondeados en perspectiva (el
+  // trasero arriba y detrás), traviesas de madera entre ambos y
   // remaches a lo largo del riel delantero.
   const BACK_DX = 5;
   const BACK_DY = -12;

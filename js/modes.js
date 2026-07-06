@@ -30,7 +30,7 @@ const Modes = (() => {
       meetWreckMargin: 400,
       meetRailMargin: 280,
     }),
-    storageKey: 'mine-cat-carnage-best',
+    storageKey: 'mine-cat-adventure-best',
   });
 
   const HARD = Object.freeze({
@@ -59,7 +59,7 @@ const Modes = (() => {
       meetWreckMargin: 480,
       meetRailMargin: 340,
     }),
-    storageKey: 'mine-cat-carnage-best-hard',
+    storageKey: 'mine-cat-adventure-best-hard',
   });
 
   // El doble de obstaculos y enemigos que DIFICIL, velocidad extrema
@@ -92,7 +92,7 @@ const Modes = (() => {
       meetWreckMargin: 560,
       meetRailMargin: 130, // rieles de 300-600: si fuera mayor, nunca aparecerían
     }),
-    storageKey: 'mine-cat-carnage-best-hardcore',
+    storageKey: 'mine-cat-adventure-best-hardcore',
   });
 
   let current = NORMAL;

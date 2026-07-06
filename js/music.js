@@ -4,7 +4,7 @@
 // compases (bajo + arpegio + percusión) que acelera según el modo.
 // Sin archivos externos.
 const Music = (() => {
-  const STORAGE_KEY = 'mcc-music-on';
+  const STORAGE_KEY = 'mca-music-on';
   const LOOKAHEAD = 0.15; // segundos programados por adelantado
   const STEPS_PER_BAR = 16;
   const BARS = 4;

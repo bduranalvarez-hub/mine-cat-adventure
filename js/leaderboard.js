@@ -5,8 +5,8 @@
 // implementa `remoteSubmit` / `remoteTop` contra un backend
 // (p. ej. Supabase o Firebase) y pon REMOTE en true.
 const Leaderboard = (() => {
-  const SCORES_KEY = 'mcc-ranking';
-  const PLAYER_KEY = 'mcc-player';
+  const SCORES_KEY = 'mca-ranking';
+  const PLAYER_KEY = 'mca-player';
   const MAX_ENTRIES = 100;
   const REMOTE = false;
 

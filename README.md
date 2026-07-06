@@ -1,10 +1,10 @@
 # Mine Cat Adventure 🐈🛒
 
-Runner infinito para móviles inspirado en *Mine Cart Carnage* (Donkey Kong
-Country), protagonizado por gatos sphynx. Toca la pantalla para saltar,
-esquiva los huecos en los rieles y a los gatos gruñones, y llega lo más
-lejos que puedas. La distancia recorrida es tu puntuación y el récord se
-guarda en el dispositivo.
+Runner infinito para móviles de vagonetas mineras, protagonizado por
+gatos sphynx. Toca la pantalla para saltar, esquiva los huecos en los
+rieles y a los gatos gruñones, y llega lo más lejos que puedas. La
+distancia recorrida es tu puntuación y el récord se guarda en el
+dispositivo.
 
 ## Cómo jugar
 
@@ -24,7 +24,7 @@ guarda en el dispositivo.
 - La pista sube y baja como una montaña rusa: cuesta abajo la vagoneta
   acelera y cuesta arriba se frena. Además los tramos están **a
   desnivel**: el siguiente riel puede estar en un saliente más bajo
-  (caída libre) o más alto (salto exigente), como en DKC.
+  (caída libre) o más alto (salto exigente).
 - Tres peligros terminan la partida:
   - **Huecos** en los rieles (caes al pozo).
   - **Vagones averiados** volcados sobre la vía (se saltan). Tocar su
