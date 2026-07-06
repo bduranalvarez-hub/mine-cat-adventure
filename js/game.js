@@ -74,7 +74,8 @@ const Game = (() => {
     [
       'hud', 'distance', 'menu', 'login', 'ranking', 'rank-list',
       'gameover', 'go-title', 'go-distance', 'go-record', 'go-best',
-      'go-retry', 'go-menu', 'best-normal', 'best-hard', 'best-hardcore',
+      'go-retry', 'go-menu', 'go-share', 'go-buttons',
+      'best-normal', 'best-hard', 'best-hardcore',
       'player-name', 'nick', 'btn-music',
     ].forEach((id) => {
       dom[id] = document.getElementById(id);
@@ -110,6 +111,7 @@ const Game = (() => {
     wireButton('btn-hard', () => start('hard'));
     wireButton('btn-hardcore', () => start('hardcore'));
     wireButton('go-menu', showMenu);
+    wireButton('go-share', shareScore);
     wireButton('btn-login', doLogin);
     wireButton('btn-logout', showLogin);
     wireButton('btn-ranking', () => showRanking(Modes.get().key));
@@ -238,7 +240,7 @@ const Game = (() => {
     dom.gameover.classList.add('hidden');
     dom['go-record'].classList.add('hidden');
     dom['go-retry'].classList.add('hidden');
-    dom['go-menu'].classList.add('hidden');
+    dom['go-buttons'].classList.add('hidden');
     dom.hud.classList.remove('hidden');
     dom.distance.classList.toggle('hard', Modes.get().key === 'hard');
     dom.distance.classList.toggle('hardcore', Modes.get().key === 'hardcore');
@@ -280,6 +282,28 @@ const Game = (() => {
       GameAudio.record();
     }
     dom.gameover.classList.remove('hidden');
+  }
+
+  // Comparte la puntuación de la última partida como tarjeta-imagen.
+  function shareScore() {
+    const btn = dom['go-share'];
+    const original = btn.textContent;
+    btn.textContent = '…';
+    Share.share({
+      player: Leaderboard.getPlayer(),
+      meters: meters(),
+      best: state.best,
+      isRecord: state.isRecord,
+      modeKey: Modes.get().key,
+      modeLabel: Modes.get().label,
+    })
+      .then((result) => {
+        btn.textContent = result === 'downloaded' ? '✓ IMAGEN GUARDADA' : original;
+        if (result === 'downloaded') {
+          setTimeout(() => { btn.textContent = original; }, 2200);
+        }
+      })
+      .catch(() => { btn.textContent = original; });
   }
 
   function handleAction() {
@@ -411,7 +435,7 @@ const Game = (() => {
     }
     if (state.deathTimer > 1.1) {
       dom['go-retry'].classList.remove('hidden');
-      dom['go-menu'].classList.remove('hidden');
+      dom['go-buttons'].classList.remove('hidden');
     }
   }
 

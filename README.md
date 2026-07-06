@@ -20,6 +20,9 @@ dispositivo.
   hacerlo mundial.
 - **Música** chiptune generada por código (WebAudio), más rápida
   cuanto más difícil el modo. Se puede silenciar desde el menú.
+- **📤 COMPARTIR**: al morir, genera una tarjeta-imagen con tu marca,
+  medalla y modo, y la comparte por el menú nativo del móvil (WhatsApp,
+  Instagram, etc.). En escritorio descarga la imagen y copia el texto.
 - **Tocar la pantalla** (o `Espacio` / `↑` en PC): saltar.
 - La pista sube y baja como una montaña rusa: cuesta abajo la vagoneta
   acelera y cuesta arriba se frena. Además los tramos están **a
@@ -67,6 +70,7 @@ js/config.js        Constantes de juego (física, generación)
 js/modes.js         Modos de dificultad (NORMAL / DIFÍCIL / HARDCORE)
 js/music.js         Música de fondo chiptune (WebAudio, sin archivos)
 js/leaderboard.js   Jugador y ranking (local, backend enchufable)
+js/share.js         Tarjeta-imagen para compartir puntuación
 js/audio.js         Efectos de sonido con WebAudio (sin archivos)
 js/input.js         Entrada táctil, ratón y teclado
 js/sprites.js       Dibujo vectorial de gatos y vagonetas

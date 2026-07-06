@@ -172,6 +172,13 @@ body {
   width: auto;
 }
 
+.go-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .login-label {
   font-size: 16px;
   color: #e8c9a0;
