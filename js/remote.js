@@ -9,8 +9,8 @@
 // controla Row Level Security (RLS) en Supabase. NUNCA pongas aquí la
 // clave service_role.
 const RemoteConfig = Object.freeze({
-  url: '', // ej: 'https://abcdefgh.supabase.co'
-  anonKey: '', // clave anon/public
+  url: 'https://xeludbllrshwswywhttp.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlbHVkYmxscnNod3N3eXdodHRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzM3NTMsImV4cCI6MjA5ODk0OTc1M30.WlaqdYDtjMAbIj-wGv3Km89Twc-17sLVRcjCudjhVXw',
 });
 
 const Remote = (() => {
