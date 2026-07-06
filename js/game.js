@@ -1,0 +1,468 @@
+'use strict';
+
+// Bucle principal, estados (menú / jugando / muerto), puntuación y HUD.
+const Game = (() => {
+  const MODES = { MENU: 'menu', PLAYING: 'playing', DEAD: 'dead' };
+
+  let canvas = null;
+  let ctx = null;
+  let scale = 1;
+  let viewW = 0;
+  // El zoom del modo aleja la cámara: a más velocidad, más pista visible.
+  let viewH = CONFIG.VIRTUAL_HEIGHT;
+  let playerX = 0;
+
+  let state = null;
+  let sparks = [];
+  let lastShownMeters = -1;
+
+  const dom = {};
+
+  function loadBest(storageKey) {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      const value = raw === null ? 0 : parseInt(raw, 10);
+      return Number.isFinite(value) && value >= 0 ? value : 0;
+    } catch (err) {
+      return 0;
+    }
+  }
+
+  function saveBest(storageKey, meters) {
+    try {
+      localStorage.setItem(storageKey, String(meters));
+    } catch (err) {
+      /* almacenamiento no disponible: el récord vive solo en la sesión */
+    }
+  }
+
+  function createState(mode) {
+    return {
+      mode,
+      worldX: 0,
+      camY: -viewH * CONFIG.CAMERA.PLAYER_RATIO,
+      speed: Modes.get().baseSpeed,
+      time: 0,
+      deathTimer: 0,
+      cause: null,
+      isRecord: false,
+      best: loadBest(Modes.get().storageKey),
+      player: Player.create(),
+      track: Track.create(),
+      obstacles: Obstacles.create(),
+    };
+  }
+
+  function meters() {
+    return Math.floor(state.worldX / CONFIG.UNITS_PER_METER);
+  }
+
+  function difficulty() {
+    const m = Modes.get();
+    return (state.speed - m.baseSpeed) / (m.maxSpeed - m.baseSpeed);
+  }
+
+  function playerScreenY() {
+    return state.player.worldY - state.camY;
+  }
+
+  let rankTab = 'normal';
+
+  function setup(canvasEl) {
+    canvas = canvasEl;
+    ctx = canvas.getContext('2d');
+    [
+      'hud', 'distance', 'menu', 'login', 'ranking', 'rank-list',
+      'gameover', 'go-title', 'go-distance', 'go-record', 'go-best',
+      'go-retry', 'go-menu', 'best-normal', 'best-hard', 'best-hardcore',
+      'player-name', 'nick', 'btn-music',
+    ].forEach((id) => {
+      dom[id] = document.getElementById(id);
+    });
+
+    // Botones: paran la propagación para que el toque no llegue al
+    // manejador global de salto. Se escuchan pointerdown y click
+    // (según el dispositivo llega uno u otro primero); si pointerdown
+    // ya ejecutó la acción, el click duplicado del MISMO botón se
+    // ignora. El guard es por botón: no bloquea taps rápidos en
+    // botones distintos (p. ej. cambiar pestañas del ranking).
+    const wireButton = (id, fn) => {
+      const el = document.getElementById(id);
+      let lastPointer = 0;
+      const run = () => {
+        GameAudio.unlock();
+        fn();
+      };
+      el.addEventListener('pointerdown', (event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        lastPointer = performance.now();
+        run();
+      });
+      el.addEventListener('click', (event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        if (performance.now() - lastPointer < 600) return;
+        run();
+      });
+    };
+    wireButton('btn-normal', () => start('normal'));
+    wireButton('btn-hard', () => start('hard'));
+    wireButton('btn-hardcore', () => start('hardcore'));
+    wireButton('go-menu', showMenu);
+    wireButton('btn-login', doLogin);
+    wireButton('btn-logout', showLogin);
+    wireButton('btn-ranking', () => showRanking(Modes.get().key));
+    wireButton('btn-rank-back', showMenu);
+    wireButton('tab-normal', () => showRanking('normal'));
+    wireButton('tab-hard', () => showRanking('hard'));
+    wireButton('tab-hardcore', () => showRanking('hardcore'));
+    wireButton('btn-music', toggleMusic);
+    dom.nick.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      if (event.key === 'Enter') doLogin();
+    });
+    updateMusicButton();
+
+    resize();
+    state = createState(MODES.MENU);
+    if (Leaderboard.getPlayer()) {
+      showMenu();
+    } else {
+      showLogin();
+    }
+    Background.reset(viewW, viewH);
+  }
+
+  // --- Login y ranking ---------------------------------------------------
+  function showLogin() {
+    state = createState(MODES.MENU);
+    dom.menu.classList.add('hidden');
+    dom.ranking.classList.add('hidden');
+    dom.gameover.classList.add('hidden');
+    dom.hud.classList.add('hidden');
+    dom.nick.value = Leaderboard.getPlayer();
+    dom.login.classList.remove('hidden');
+  }
+
+  function doLogin() {
+    const name = dom.nick.value.trim().slice(0, 12);
+    if (!name) {
+      dom.nick.focus();
+      return;
+    }
+    Leaderboard.setPlayer(name);
+    dom.login.classList.add('hidden');
+    Music.start(Modes.NORMAL.musicTempo);
+    showMenu();
+  }
+
+  function showRanking(modeKey) {
+    rankTab = modeKey;
+    dom.menu.classList.add('hidden');
+    dom.ranking.classList.remove('hidden');
+    ['normal', 'hard', 'hardcore'].forEach((key) => {
+      document.getElementById(`tab-${key}`).classList.toggle('active', key === modeKey);
+    });
+    const entries = Leaderboard.top(modeKey, 10);
+    if (entries.length === 0) {
+      dom['rank-list'].innerHTML =
+        '<li class="rank-empty">Aún no hay marcas en este modo. ¡Sé el primero!</li>';
+      return;
+    }
+    dom['rank-list'].innerHTML = entries
+      .map((e, i) => {
+        const safeName = e.name.replace(/[<>&"]/g, '');
+        return `<li><span class="rank-pos">${i + 1}.</span>` +
+          `<span class="rank-name">${safeName}</span>` +
+          `<span class="rank-m">${e.meters} m</span></li>`;
+      })
+      .join('');
+  }
+
+  function toggleMusic() {
+    Music.setEnabled(!Music.isEnabled());
+    if (Music.isEnabled()) Music.start(Modes.get().musicTempo);
+    updateMusicButton();
+  }
+
+  function updateMusicButton() {
+    dom['btn-music'].textContent = Music.isEnabled() ? '🔊 Música: sí' : '🔇 Música: no';
+  }
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(canvas.clientWidth * dpr);
+    canvas.height = Math.floor(canvas.clientHeight * dpr);
+    viewH = CONFIG.VIRTUAL_HEIGHT * Modes.get().zoom;
+    scale = canvas.height / viewH;
+    viewW = canvas.width / scale;
+    playerX = viewW * CONFIG.PLAYER_X_RATIO;
+  }
+
+  function updateMenuBest() {
+    Modes.ALL.forEach((mode) => {
+      const best = loadBest(mode.storageKey);
+      dom[`best-${mode.key}`].textContent =
+        best > 0 ? `Récord: ${best} m` : 'Sin récord';
+    });
+  }
+
+  function showMenu() {
+    state = createState(MODES.MENU);
+    dom.gameover.classList.add('hidden');
+    dom.ranking.classList.add('hidden');
+    dom.login.classList.add('hidden');
+    dom.hud.classList.add('hidden');
+    dom['player-name'].textContent = Leaderboard.getPlayer();
+    updateMenuBest();
+    Music.setTempo(Modes.NORMAL.musicTempo);
+    Music.start(Modes.NORMAL.musicTempo);
+    dom.menu.classList.remove('hidden');
+  }
+
+  function start(modeKey) {
+    Modes.set(Modes.byKey(modeKey));
+    resize(); // aplica el zoom del modo
+    Background.reset(viewW, viewH);
+    Music.start(Modes.get().musicTempo);
+    Music.setTempo(Modes.get().musicTempo);
+    startGame();
+  }
+
+  function startGame() {
+    state = createState(MODES.PLAYING);
+    sparks = [];
+    lastShownMeters = -1;
+    dom.menu.classList.add('hidden');
+    dom.gameover.classList.add('hidden');
+    dom['go-record'].classList.add('hidden');
+    dom['go-retry'].classList.add('hidden');
+    dom['go-menu'].classList.add('hidden');
+    dom.hud.classList.remove('hidden');
+    dom.distance.classList.toggle('hard', Modes.get().key === 'hard');
+    dom.distance.classList.toggle('hardcore', Modes.get().key === 'hardcore');
+    dom.distance.textContent = '0 m';
+  }
+
+  function die(cause) {
+    state.mode = MODES.DEAD;
+    state.cause = cause;
+    state.deathTimer = 0;
+
+    const finalMeters = meters();
+    if (finalMeters > state.best) {
+      state.best = finalMeters;
+      state.isRecord = true;
+      saveBest(Modes.get().storageKey, finalMeters);
+    }
+    Leaderboard.submit(Leaderboard.getPlayer(), finalMeters, Modes.get().key);
+
+    if (cause === 'crash') {
+      state.player.onRail = false;
+      state.player.vy = -620;
+      GameAudio.crash();
+      burstSparks(playerX, playerScreenY() - 30, 26);
+    } else {
+      GameAudio.fall();
+    }
+    if (navigator.vibrate) navigator.vibrate(cause === 'crash' ? 120 : 60);
+  }
+
+  function showGameOver() {
+    dom.hud.classList.add('hidden');
+    dom['go-title'].textContent =
+      state.cause === 'fall' ? '¡AL POZO!' : '¡TE ESTRELLASTE!';
+    dom['go-distance'].textContent = String(meters());
+    dom['go-best'].textContent = `Récord (${Modes.get().label}): ${state.best} m`;
+    if (state.isRecord) {
+      dom['go-record'].classList.remove('hidden');
+      GameAudio.record();
+    }
+    dom.gameover.classList.remove('hidden');
+  }
+
+  function handleAction() {
+    if (state.mode === MODES.MENU) {
+      return; // en el menú se elige modo con los botones
+    }
+    if (state.mode === MODES.PLAYING) {
+      if (Player.jump(state.player)) GameAudio.jump();
+      return;
+    }
+    if (state.mode === MODES.DEAD && state.deathTimer > 1.1) {
+      startGame();
+    }
+  }
+
+  // Al soltar el toque/tecla: recorta el salto en curso.
+  function handleRelease() {
+    if (state.mode === MODES.PLAYING) {
+      Player.jumpCut(state.player);
+    }
+  }
+
+  // --- Chispas de las ruedas -------------------------------------------
+  function burstSparks(x, y, count) {
+    for (let i = 0; i < count; i += 1) {
+      sparks.push({
+        x,
+        y,
+        vx: (Math.random() - 0.7) * 420,
+        vy: -Math.random() * 320,
+        life: 0.3 + Math.random() * 0.35,
+      });
+    }
+  }
+
+  function updateSparks(dt) {
+    sparks.forEach((s) => {
+      s.life -= dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.vy += 1400 * dt;
+    });
+    sparks = sparks.filter((s) => s.life > 0);
+  }
+
+  function drawSparks() {
+    sparks.forEach((s) => {
+      ctx.fillStyle = s.life > 0.2 ? '#ffd76a' : '#ff8c42';
+      ctx.fillRect(s.x - 2, s.y - 2, 4, 4);
+    });
+  }
+
+  // --- Actualización -----------------------------------------------------
+  function updateCamera(dt) {
+    const target = state.player.worldY - viewH * CONFIG.CAMERA.PLAYER_RATIO;
+    state.camY += (target - state.camY) * Math.min(1, CONFIG.CAMERA.FOLLOW * dt);
+  }
+
+  function slopeSpeedFactor(px) {
+    if (!state.player.onRail) return 1;
+    const slope = Track.slopeAt(state.track, px);
+    const factor = 1 + slope * CONFIG.SLOPE_BOOST;
+    return Math.max(CONFIG.SLOPE_SPEED_MIN, Math.min(CONFIG.SLOPE_SPEED_MAX, factor));
+  }
+
+  function updatePlaying(dt) {
+    const mode = Modes.get();
+    state.speed = Math.min(mode.maxSpeed, state.speed + mode.speedRamp * dt);
+
+    const pxBefore = state.worldX + playerX;
+    const effSpeed = state.speed * slopeSpeedFactor(pxBefore);
+    state.worldX += effSpeed * dt;
+
+    const px = state.worldX + playerX;
+    Track.extend(state.track, state.worldX + viewW * 2, difficulty());
+    Track.prune(state.track, state.worldX - 500);
+    Obstacles.update(
+      state.obstacles, state.track, dt, state.worldX, viewW,
+      difficulty(), px, effSpeed
+    );
+
+    const landed = Player.update(state.player, dt, state.track, px, effSpeed);
+    if (landed) {
+      GameAudio.land();
+      burstSparks(playerX, playerScreenY(), 8);
+    }
+
+    updateCamera(dt);
+
+    if (state.player.onRail && Math.random() < 0.35) {
+      burstSparks(playerX - CONFIG.CART.WIDTH * 0.3, playerScreenY(), 1);
+    }
+
+    const collision = Obstacles.collide(
+      state.obstacles, state.track, px, state.player.worldY
+    );
+    if (collision === 'deadly') {
+      die('crash');
+      return;
+    }
+    if (collision === 'bounce') {
+      // Rebote sobre un vagón averiado: pequeño salto gratis.
+      state.player.vy = -680;
+      state.player.onRail = false;
+      GameAudio.jump();
+      burstSparks(playerX, playerScreenY() + 20, 12);
+    }
+    if (!state.player.onRail && playerScreenY() > viewH + 140) {
+      die('fall');
+      return;
+    }
+
+    const m = meters();
+    if (m !== lastShownMeters) {
+      lastShownMeters = m;
+      dom.distance.textContent = `${m} m`;
+    }
+  }
+
+  function updateDead(dt) {
+    state.deathTimer += dt;
+    state.player.vy += CONFIG.GRAVITY * dt;
+    state.player.worldY += state.player.vy * dt;
+    if (state.cause === 'crash') {
+      state.player.tilt += 5 * dt;
+    }
+    if (state.deathTimer > 0.9 && dom.gameover.classList.contains('hidden')) {
+      showGameOver();
+    }
+    if (state.deathTimer > 1.1) {
+      dom['go-retry'].classList.remove('hidden');
+      dom['go-menu'].classList.remove('hidden');
+    }
+  }
+
+  function update(dt) {
+    state.time += dt;
+    if (state.mode === MODES.PLAYING) updatePlaying(dt);
+    if (state.mode === MODES.DEAD) updateDead(dt);
+    updateSparks(dt);
+  }
+
+  // --- Dibujo ------------------------------------------------------------
+  function render(dt) {
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+
+    // Sacudida de pantalla justo tras un choque.
+    if (state.mode === MODES.DEAD && state.cause === 'crash' && state.deathTimer < 0.35) {
+      const shake = (0.35 - state.deathTimer) * 26;
+      ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    }
+
+    Background.draw(ctx, state, dt, viewW, viewH);
+    Track.draw(ctx, state.track, state.worldX, state.camY, viewW, viewH);
+    Obstacles.draw(ctx, state.obstacles, state.track, state.worldX, state.camY, viewW, state.time);
+
+    const speedFactor = state.speed / Modes.get().maxSpeed;
+    Sprites.drawPlayer(
+      ctx, playerX, playerScreenY(), state.player.tilt,
+      state.player.spin, state.time, speedFactor
+    );
+    drawSparks();
+    Background.drawVignette(ctx, viewW, viewH);
+  }
+
+  // Estado interno de solo lectura, para pruebas automatizadas.
+  function debugState() {
+    return {
+      mode: state.mode,
+      difficultyMode: Modes.get().key,
+      cause: state.cause,
+      worldX: state.worldX,
+      camY: state.camY,
+      speed: state.speed,
+      playerX,
+      playerWorldY: state.player.worldY,
+      onRail: state.player.onRail,
+      segments: state.track.segments.slice(),
+      obstacles: state.obstacles.list.map((o) => ({
+        type: o.type, x: o.x, vx: o.vx || 0, falling: !!o.falling,
+      })),
+    };
+  }
+
+  return { setup, resize, handleAction, handleRelease, start, update, render, debugState };
+})();

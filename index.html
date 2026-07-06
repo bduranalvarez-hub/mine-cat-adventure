@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#1a0f08" />
+  <title>Mine Cat Carnage</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <span id="distance">0 m</span>
+  </div>
+
+  <div id="login" class="overlay hidden">
+    <h1>MINE CAT<br>CARNAGE</h1>
+    <p class="subtitle">Un sphynx, una vagoneta, una mina infinita</p>
+    <label class="login-label" for="nick">¿Cómo te llamas, minero?</label>
+    <input id="nick" type="text" maxlength="12" autocomplete="off"
+           spellcheck="false" placeholder="Tu nombre" />
+    <button id="btn-login" class="mode-btn">ENTRAR A LA MINA</button>
+  </div>
+
+  <div id="menu" class="overlay hidden">
+    <h1>MINE CAT<br>CARNAGE</h1>
+    <p class="player-row">
+      Minero: <strong id="player-name"></strong>
+      <button id="btn-logout" class="link-btn">cambiar</button>
+    </p>
+    <div class="mode-buttons">
+      <button id="btn-normal" class="mode-btn">
+        FÁCIL
+        <span id="best-normal" class="btn-best"></span>
+      </button>
+      <button id="btn-hard" class="mode-btn hard">
+        🔥 DIFÍCIL
+        <span id="best-hard" class="btn-best"></span>
+      </button>
+      <button id="btn-hardcore" class="mode-btn hardcore">
+        ☠️ HARDCORE
+        <span id="best-hardcore" class="btn-best"></span>
+      </button>
+      <button id="btn-ranking" class="mode-btn small">🏆 RANKING</button>
+    </div>
+    <button id="btn-music" class="link-btn music-toggle">🔊 Música: sí</button>
+    <p class="help">Toca para saltar: tap corto, salto corto;<br>mantén presionado para el salto máximo.</p>
+  </div>
+
+  <div id="ranking" class="overlay hidden">
+    <h2 class="rank-title">🏆 RANKING</h2>
+    <div class="rank-tabs">
+      <button id="tab-normal" class="tab-btn">FÁCIL</button>
+      <button id="tab-hard" class="tab-btn">DIFÍCIL</button>
+      <button id="tab-hardcore" class="tab-btn">HARDCORE</button>
+    </div>
+    <ol id="rank-list" class="rank-list"></ol>
+    <button id="btn-rank-back" class="mode-btn small">VOLVER</button>
+  </div>
+
+  <div id="gameover" class="overlay hidden">
+    <h2 id="go-title">¡TE ESTRELLASTE!</h2>
+    <p class="result"><span id="go-distance">0</span> m</p>
+    <p id="go-record" class="record hidden">¡NUEVO RÉCORD!</p>
+    <p id="go-best" class="best"></p>
+    <p id="go-retry" class="blink hidden">TOCA PARA REINTENTAR</p>
+    <button id="go-menu" class="mode-btn small hidden">CAMBIAR MODO</button>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/modes.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/leaderboard.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/background.js"></script>
+  <script src="js/track.js"></script>
+  <script src="js/obstacles.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
