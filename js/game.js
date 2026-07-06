@@ -166,20 +166,34 @@ const Game = (() => {
     ['normal', 'hard', 'hardcore'].forEach((key) => {
       document.getElementById(`tab-${key}`).classList.toggle('active', key === modeKey);
     });
+    // Construcción con DOM + textContent: el nombre y la distancia
+    // NUNCA se interpretan como HTML, aunque vengan de otro jugador
+    // (importante para cuando el ranking sea en línea).
+    const listEl = dom['rank-list'];
+    listEl.textContent = '';
     const entries = Leaderboard.top(modeKey, 10);
     if (entries.length === 0) {
-      dom['rank-list'].innerHTML =
-        '<li class="rank-empty">Aún no hay marcas en este modo. ¡Sé el primero!</li>';
+      const li = document.createElement('li');
+      li.className = 'rank-empty';
+      li.textContent = 'Aún no hay marcas en este modo. ¡Sé el primero!';
+      listEl.appendChild(li);
       return;
     }
-    dom['rank-list'].innerHTML = entries
-      .map((e, i) => {
-        const safeName = e.name.replace(/[<>&"]/g, '');
-        return `<li><span class="rank-pos">${i + 1}.</span>` +
-          `<span class="rank-name">${safeName}</span>` +
-          `<span class="rank-m">${e.meters} m</span></li>`;
-      })
-      .join('');
+    entries.forEach((e, i) => {
+      const li = document.createElement('li');
+      const pos = document.createElement('span');
+      pos.className = 'rank-pos';
+      pos.textContent = `${i + 1}.`;
+      const name = document.createElement('span');
+      name.className = 'rank-name';
+      name.textContent = String(e.name || '').slice(0, 14);
+      const dist = document.createElement('span');
+      dist.className = 'rank-m';
+      const m = Number.isFinite(e.meters) ? Math.floor(e.meters) : 0;
+      dist.textContent = `${m} m`;
+      li.append(pos, name, dist);
+      listEl.appendChild(li);
+    });
   }
 
   function toggleMusic() {
