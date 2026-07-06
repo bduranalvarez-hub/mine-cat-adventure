@@ -72,7 +72,7 @@ const Game = (() => {
     canvas = canvasEl;
     ctx = canvas.getContext('2d');
     [
-      'hud', 'distance', 'menu', 'login', 'ranking', 'rank-list',
+      'hud', 'distance', 'menu', 'login', 'ranking', 'rank-list', 'rank-status',
       'gameover', 'go-title', 'go-distance', 'go-record', 'go-best',
       'go-retry', 'go-menu', 'go-share', 'go-buttons',
       'best-normal', 'best-hard', 'best-hardcore',
@@ -159,20 +159,17 @@ const Game = (() => {
     showMenu();
   }
 
-  function showRanking(modeKey) {
-    rankTab = modeKey;
-    dom.menu.classList.add('hidden');
-    dom.ranking.classList.remove('hidden');
-    ['normal', 'hard', 'hardcore'].forEach((key) => {
-      document.getElementById(`tab-${key}`).classList.toggle('active', key === modeKey);
-    });
-    // Construcción con DOM + textContent: el nombre y la distancia
-    // NUNCA se interpretan como HTML, aunque vengan de otro jugador
-    // (importante para cuando el ranking sea en línea).
+  // Token para descartar respuestas remotas obsoletas si el jugador
+  // cambia de pestaña antes de que llegue la anterior.
+  let rankRequest = 0;
+
+  // Pinta la lista. Construcción con DOM + textContent: el nombre y la
+  // distancia NUNCA se interpretan como HTML, aunque vengan de otro
+  // jugador (importante para el ranking en línea).
+  function renderRankList(entries) {
     const listEl = dom['rank-list'];
     listEl.textContent = '';
-    const entries = Leaderboard.top(modeKey, 10);
-    if (entries.length === 0) {
+    if (!entries || entries.length === 0) {
       const li = document.createElement('li');
       li.className = 'rank-empty';
       li.textContent = 'Aún no hay marcas en este modo. ¡Sé el primero!';
@@ -194,6 +191,37 @@ const Game = (() => {
       li.append(pos, name, dist);
       listEl.appendChild(li);
     });
+  }
+
+  function showRanking(modeKey) {
+    rankTab = modeKey;
+    dom.menu.classList.add('hidden');
+    dom.ranking.classList.remove('hidden');
+    ['normal', 'hard', 'hardcore'].forEach((key) => {
+      document.getElementById(`tab-${key}`).classList.toggle('active', key === modeKey);
+    });
+
+    const req = ++rankRequest;
+
+    if (!Leaderboard.remoteEnabled()) {
+      dom['rank-status'].textContent = '📱 Ranking local (este dispositivo)';
+      renderRankList(Leaderboard.top(modeKey, 10));
+      return;
+    }
+
+    dom['rank-status'].textContent = '🌍 Cargando ranking mundial…';
+    dom['rank-list'].textContent = '';
+    Leaderboard.topGlobal(modeKey, 10)
+      .then((entries) => {
+        if (req !== rankRequest) return; // respuesta obsoleta
+        dom['rank-status'].textContent = '🌍 Ranking mundial';
+        renderRankList(entries);
+      })
+      .catch(() => {
+        if (req !== rankRequest) return;
+        dom['rank-status'].textContent = '📱 Sin conexión: ranking local';
+        renderRankList(Leaderboard.top(modeKey, 10));
+      });
   }
 
   function toggleMusic() {

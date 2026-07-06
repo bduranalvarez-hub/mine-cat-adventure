@@ -262,6 +262,13 @@ body {
   border-color: #ffd76a;
 }
 
+.rank-status {
+  font-size: 14px;
+  color: #ffd76a;
+  font-weight: 700;
+  min-height: 18px;
+}
+
 .rank-list {
   list-style: none;
   width: min(80vw, 340px);

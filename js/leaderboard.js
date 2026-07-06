@@ -1,14 +1,16 @@
 'use strict';
 
-// Jugador y ranking. Por ahora las puntuaciones se guardan en el
-// dispositivo (localStorage). Para un ranking mundial de verdad,
-// implementa `remoteSubmit` / `remoteTop` contra un backend
-// (p. ej. Supabase o Firebase) y pon REMOTE en true.
+// Jugador y ranking. Guarda siempre una copia LOCAL en el dispositivo
+// (para jugar sin conexión) y, si el backend está configurado en
+// remote.js, también envía y lee el ranking MUNDIAL vía Supabase.
 const Leaderboard = (() => {
   const SCORES_KEY = 'mca-ranking';
   const PLAYER_KEY = 'mca-player';
   const MAX_ENTRIES = 100;
-  const REMOTE = false;
+
+  function remoteEnabled() {
+    return typeof Remote !== 'undefined' && Remote.enabled();
+  }
 
   function loadAll() {
     try {
@@ -40,7 +42,8 @@ const Leaderboard = (() => {
     } catch (err) { /* sin almacenamiento */ }
   }
 
-  // Guarda solo la mejor marca de cada jugador por modo.
+  // Guarda solo la mejor marca de cada jugador por modo (local) y, si
+  // hay backend, la envía al ranking mundial sin bloquear el juego.
   function submit(name, meters, modeKey) {
     if (!name || !Number.isFinite(meters) || meters <= 0) return;
     const list = loadAll();
@@ -54,16 +57,22 @@ const Leaderboard = (() => {
     }
     list.sort((a, b) => b.meters - a.meters);
     saveAll(list.slice(0, MAX_ENTRIES));
-    if (REMOTE) {
-      // remoteSubmit(name, meters, modeKey);
+    if (remoteEnabled()) {
+      Remote.submit(name, Math.floor(meters), modeKey).catch(() => {});
     }
   }
 
+  // Ranking local (síncrono).
   function top(modeKey, n) {
     return loadAll()
       .filter((e) => e.mode === modeKey)
       .slice(0, n);
   }
 
-  return { getPlayer, setPlayer, submit, top };
+  // Ranking mundial (asíncrono). Lanza si el backend no está listo.
+  function topGlobal(modeKey, n) {
+    return Remote.top(modeKey, n);
+  }
+
+  return { getPlayer, setPlayer, submit, top, topGlobal, remoteEnabled };
 })();
