@@ -9,7 +9,6 @@ const Modes = (() => {
     baseSpeed: 450,
     maxSpeed: 980,
     speedRamp: 8.5,
-    zoom: 1, // cuanto se aleja la camara (mas zoom = ves mas pista)
     gapMaxStart: 210,
     gapMaxEnd: 310,
     railMin: 550,
@@ -39,7 +38,6 @@ const Modes = (() => {
     baseSpeed: 560,
     maxSpeed: 1160,
     speedRamp: 11,
-    zoom: 1.12,
     gapMaxStart: 230,
     gapMaxEnd: 330,
     railMin: 600,
@@ -63,14 +61,13 @@ const Modes = (() => {
   });
 
   // El doble de obstaculos y enemigos que DIFICIL, velocidad extrema
-  // y colinas salvajes. La camara se aleja para que puedas verlo venir.
+  // y colinas salvajes.
   const HARDCORE = Object.freeze({
     key: 'hardcore',
     label: 'HARDCORE',
     baseSpeed: 700,
     maxSpeed: 1350,
     speedRamp: 14,
-    zoom: 1.3,
     gapMaxStart: 240,
     gapMaxEnd: 340,
     railMin: 300,

@@ -4,10 +4,10 @@
 // pantalla siempre equivale a VIRTUAL_HEIGHT, el ancho se escala.
 const CONFIG = Object.freeze({
   VIRTUAL_HEIGHT: 720,
-  // Ancho mínimo de mundo visible (a zoom=1): garantiza tiempo de
-  // reacción en pantallas angostas (móvil vertical), sin importar
-  // cuán poco ancho físico tengan. Ver resize() en game.js.
-  MIN_VIEW_WIDTH: 1150,
+  // Ancho mínimo de mundo visible: garantiza tiempo de reacción en
+  // pantallas angostas (móvil vertical), sin importar cuán poco ancho
+  // físico tengan. Igual para los tres modos. Ver resize() en game.js.
+  MIN_VIEW_WIDTH: 850,
 
   GRAVITY: 2500,
   JUMP_VELOCITY: -940,
