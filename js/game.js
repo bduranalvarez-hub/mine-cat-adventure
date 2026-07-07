@@ -238,8 +238,25 @@ const Game = (() => {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.floor(canvas.clientWidth * dpr);
     canvas.height = Math.floor(canvas.clientHeight * dpr);
-    viewH = CONFIG.VIRTUAL_HEIGHT * Modes.get().zoom;
-    scale = canvas.height / viewH;
+
+    const zoom = Modes.get().zoom;
+    const baseViewH = CONFIG.VIRTUAL_HEIGHT * zoom;
+    const minViewW = CONFIG.MIN_VIEW_WIDTH * zoom;
+
+    // Por defecto se fija la ALTURA de mundo visible (buen encuadre en
+    // pantallas anchas: horizontal, tablet). Pero eso deja el ANCHO
+    // visible a merced de la proporción física: en pantallas angostas
+    // (móvil vertical) resultaba en muy poco tiempo de reacción. Si el
+    // ancho resultante no alcanza un mínimo, se fija el ANCHO en su
+    // lugar y se deja crecer la altura (se ve más pared de la mina
+    // arriba/abajo, sin ninguna desventaja de jugabilidad).
+    const heightDrivenScale = canvas.height / baseViewH;
+    const heightDrivenViewW = canvas.width / heightDrivenScale;
+    scale = heightDrivenViewW < minViewW
+      ? canvas.width / minViewW
+      : heightDrivenScale;
+
+    viewH = canvas.height / scale;
     viewW = canvas.width / scale;
     playerX = viewW * CONFIG.PLAYER_X_RATIO;
   }
@@ -521,6 +538,8 @@ const Game = (() => {
       camY: state.camY,
       speed: state.speed,
       playerX,
+      viewW,
+      viewH,
       playerWorldY: state.player.worldY,
       onRail: state.player.onRail,
       segments: state.track.segments.slice(),

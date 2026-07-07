@@ -221,9 +221,20 @@ const Share = (() => {
     a.remove();
   }
 
+  // Enlace al juego (origen + ruta, sin query ni hash) para que quien
+  // reciba la puntuación pueda entrar a jugar directamente.
+  function gameUrl() {
+    try {
+      return location.origin + location.pathname;
+    } catch (err) {
+      return '';
+    }
+  }
+
   function shareText(data) {
+    const url = gameUrl();
     return `¡Recorrí ${data.meters} m en Mine Cat Adventure (${data.modeLabel})! ` +
-      '¿Puedes superarme? 🐈🛒';
+      `¿Puedes superarme? 🐈🛒${url ? `\n${url}` : ''}`;
   }
 
   // Devuelve un estado para avisar al usuario: 'shared' | 'downloaded' | 'cancelled'.
