@@ -50,9 +50,22 @@ const Obstacles = (() => {
     }
   }
 
+  // Un salto en subida gana poca altura (el riel ascendente alcanza a
+  // la vagoneta y corta el tiempo de aire), así que no se puede saltar
+  // a un enemigo a tiempo. Detecta si la zona donde el jugador lanzaría
+  // y completaría el salto (un poco antes del cruce y en el cruce) cae
+  // en una pendiente ascendente pronunciada. Pendiente < 0 = terreno
+  // que sube.
+  function ascendingNear(track, x) {
+    const here = Track.slopeAt(track, x);
+    const beforeJump = Track.slopeAt(track, x - 150);
+    return Math.min(here, beforeJump) < -0.2;
+  }
+
   // Vagonetas de frente: aparecen fuera de pantalla y ruedan hacia
   // el jugador. Antes de aparecer se estima dónde se cruzarán con el
-  // jugador: si allí hay un vagón averiado o un hueco, el cruce sería
+  // jugador: si allí hay un vagón averiado, un hueco, o una subida
+  // pronunciada (donde no se puede saltar al enemigo), el cruce sería
   // una trampa sin salida y se pospone.
   function spawnCarts(obstacles, track, dt, worldX, viewW, difficulty, px, playerSpeed) {
     const c = Modes.get().oncoming;
@@ -68,7 +81,12 @@ const Obstacles = (() => {
       (o) => o.type === 'wreck' && Math.abs(o.x - meetX) < c.meetWreckMargin
     );
     const railOkAtMeet = Track.hasRailAround(track, meetX, c.meetRailMargin);
-    if (wreckNearMeet || !railOkAtMeet || !Track.hasRailAt(track, spawnX)) {
+    if (
+      wreckNearMeet ||
+      !railOkAtMeet ||
+      ascendingNear(track, meetX) ||
+      !Track.hasRailAt(track, spawnX)
+    ) {
       obstacles.cartTimer = 0.7; // reintenta en un momento
       return;
     }

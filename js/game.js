@@ -549,6 +549,7 @@ const Game = (() => {
       viewH,
       playerWorldY: state.player.worldY,
       onRail: state.player.onRail,
+      playerSlope: Track.slopeAt(state.track, state.worldX + playerX),
       segments: state.track.segments.slice(),
       obstacles: state.obstacles.list.map((o) => ({
         type: o.type, x: o.x, vx: o.vx || 0, falling: !!o.falling,
