@@ -3,7 +3,7 @@
 // Service worker: estrategia red-primero con respaldo en caché.
 // Online siempre sirve la última versión; offline sirve la copia
 // guardada. Sube CACHE_VERSION al publicar cambios importantes.
-const CACHE_VERSION = 'mca-v7';
+const CACHE_VERSION = 'mca-v8';
 
 const ASSETS = [
   './',
@@ -16,6 +16,7 @@ const ASSETS = [
   './js/audio.js',
   './js/music.js',
   './js/remote.js',
+  './js/moderation.js',
   './js/leaderboard.js',
   './js/share.js',
   './js/input.js',

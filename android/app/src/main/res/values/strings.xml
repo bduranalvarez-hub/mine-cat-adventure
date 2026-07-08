@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Mine Cat Adventure</string>
+    <string name="title_activity_main">Mine Cat Adventure</string>
+    <string name="package_name">com.minecatadventure.app</string>
+    <string name="custom_url_scheme">com.minecatadventure.app</string>
+</resources>

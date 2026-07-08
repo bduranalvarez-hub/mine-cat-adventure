@@ -1,0 +1,9 @@
+{
+  "appId": "com.minecatadventure.app",
+  "appName": "Mine Cat Adventure",
+  "webDir": "www",
+  "backgroundColor": "#1a0f08",
+  "android": {
+    "backgroundColor": "#1a0f08"
+  }
+}

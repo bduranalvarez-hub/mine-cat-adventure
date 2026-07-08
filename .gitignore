@@ -6,3 +6,28 @@ desktop.ini
 # Editores
 .vscode/
 .idea/
+
+# Node / Capacitor
+node_modules/
+www/
+
+# Firma de la app: NUNCA subir el keystore ni sus contraseñas.
+keystore/
+android/keystore.properties
+android/local.properties
+
+# Artefactos de build de Android
+android/app/build/
+android/build/
+android/.gradle/
+android/captures/
+android/local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# iOS (si se agrega mas adelante)
+ios/App/Pods/
+ios/App/App.xcworkspace/
+

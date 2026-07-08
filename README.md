@@ -15,9 +15,8 @@ dispositivo.
   casi todo es salto; la cámara se aleja para que puedas ver lo que
   viene). Cada modo guarda su propio récord.
 - **🏆 RANKING**: tabla de mejores marcas por modo (mejor marca de
-  cada jugador). Por ahora es local al dispositivo; el módulo
-  `js/leaderboard.js` está preparado para conectar un backend y
-  hacerlo mundial.
+  cada jugador), mundial vía Supabase (`js/remote.js`), con respaldo
+  local si no hay conexión.
 - **Música** chiptune generada por código (WebAudio), más rápida
   cuanto más difícil el modo. Se puede silenciar desde el menú.
 - **📤 COMPARTIR**: al morir, genera una tarjeta-imagen con tu marca,
@@ -56,30 +55,57 @@ python server.py
 3. En el teléfono (misma red WiFi) abre `http://192.168.1.50:8321`.
 4. Opcional: "Añadir a pantalla de inicio" para jugar a pantalla completa.
 
-También puedes publicarlo gratis en GitHub Pages / Netlify / Vercel
-(carpeta estática, sin build), o empaquetarlo como app nativa con
-[Capacitor](https://capacitorjs.com/) si quieres subirlo a las tiendas.
+El juego ya está publicado en:
+https://bduranalvarez-hub.github.io/mine-cat-adventure/
+
+## Publicación
+
+- **Web (GitHub Pages)**: ya en vivo, se actualiza con cada `git push`
+  a `main`.
+- **Google Play**: el proyecto Android (Capacitor) está listo en
+  `android/`. Ver `play-assets/GOOGLE-PLAY-RUNBOOK.md` para los pasos
+  de compilación, firma y publicación, y `play-assets/PLAY-STORE-LISTING.md`
+  para los textos de la ficha ya redactados.
+- **App Store (iOS)**: pendiente, requiere una Mac con Xcode.
+
+```bash
+npm install              # instala Capacitor
+npm run cap:sync         # copia el juego a www/ y sincroniza con android/
+npm run android:open     # abre el proyecto en Android Studio
+```
 
 ## Estructura
 
 ```
-index.html          Página y overlays (login, menú, ranking, HUD, game over)
-css/style.css       Estilos de la interfaz
-server.py           Servidor de desarrollo sin caché
-js/config.js        Constantes de juego (física, generación)
-js/modes.js         Modos de dificultad (NORMAL / DIFÍCIL / HARDCORE)
-js/music.js         Música de fondo chiptune (WebAudio, sin archivos)
-js/leaderboard.js   Jugador y ranking (local, backend enchufable)
-js/share.js         Tarjeta-imagen para compartir puntuación
-js/audio.js         Efectos de sonido con WebAudio (sin archivos)
-js/input.js         Entrada táctil, ratón y teclado
-js/sprites.js       Dibujo vectorial de gatos y vagonetas
-js/background.js    Fondo de mina con parallax y polvo
-js/track.js         Generación infinita de rieles y huecos
-js/obstacles.js     Vagonetas enemigas (aparición y colisiones)
-js/player.js        Física del jugador (salto, gravedad, aterrizaje)
-js/game.js          Bucle principal, estados, puntuación y HUD
-js/main.js          Arranque y bucle de animación
+index.html            Página y overlays (login, menú, ranking, HUD, game over)
+privacy.html           Política de privacidad
+manifest.json           Manifiesto PWA
+sw.js                    Service worker (juego offline)
+css/style.css           Estilos de la interfaz
+server.py               Servidor de desarrollo sin caché
+js/config.js            Constantes de juego (física, generación)
+js/modes.js              Modos de dificultad (FÁCIL / DIFÍCIL / HARDCORE)
+js/music.js              Música de fondo chiptune (WebAudio, sin archivos)
+js/remote.js             Ranking mundial vía Supabase (API REST)
+js/moderation.js         Filtro de apodos ofensivos
+js/leaderboard.js        Jugador y ranking (local + mundial)
+js/share.js              Tarjeta-imagen para compartir puntuación
+js/audio.js              Efectos de sonido con WebAudio (sin archivos)
+js/input.js              Entrada táctil, ratón y teclado
+js/sprites.js            Dibujo vectorial de gatos y vagonetas
+js/background.js         Fondo de mina con parallax y polvo
+js/track.js              Generación infinita de rieles y huecos
+js/obstacles.js          Vagonetas enemigas (aparición y colisiones)
+js/player.js             Física del jugador (salto, gravedad, aterrizaje)
+js/game.js               Bucle principal, estados, puntuación y HUD
+js/main.js               Arranque y bucle de animación
+supabase-setup.sql      Script SQL del ranking mundial
+package.json             Dependencias de Capacitor
+capacitor.config.json   Configuración de la app nativa
+scripts/build-mobile.mjs Copia el juego a www/ para empaquetar
+resources/               Fuentes de icono/splash para @capacitor/assets
+android/                 Proyecto nativo Android (generado)
+play-assets/             Metadata y capturas para la ficha de Play Store
 ```
 
 ## Ajustar la dificultad

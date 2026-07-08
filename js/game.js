@@ -153,6 +153,12 @@ const Game = (() => {
       dom.nick.focus();
       return;
     }
+    if (!Moderation.isAllowed(name)) {
+      dom.nick.value = '';
+      dom.nick.placeholder = 'Ese nombre no está permitido';
+      dom.nick.focus();
+      return;
+    }
     Leaderboard.setPlayer(name);
     dom.login.classList.add('hidden');
     Music.start(Modes.NORMAL.musicTempo);
