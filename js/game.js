@@ -120,11 +120,17 @@ const Game = (() => {
     wireButton('tab-hard', () => showRanking('hard'));
     wireButton('tab-hardcore', () => showRanking('hardcore'));
     wireButton('btn-music', toggleMusic);
+    wireButton('btn-lang', () => I18n.toggle());
+    wireButton('btn-lang-login', () => I18n.toggle());
     dom.nick.addEventListener('keydown', (event) => {
       event.stopPropagation();
       if (event.key === 'Enter') doLogin();
     });
-    updateMusicButton();
+
+    // Al cambiar de idioma, refresca los textos que se generan por
+    // código (no cubiertos por data-i18n).
+    I18n.setOnChange(refreshDynamicText);
+    I18n.apply();
 
     resize();
     state = createState(MODES.MENU);
@@ -134,6 +140,17 @@ const Game = (() => {
       showLogin();
     }
     Background.reset(viewW, viewH);
+  }
+
+  // Vuelve a pintar los textos dinámicos según el idioma actual.
+  function refreshDynamicText() {
+    updateMusicButton();
+    if (dom.menu && !dom.menu.classList.contains('hidden')) {
+      updateMenuBest();
+    }
+    if (dom.ranking && !dom.ranking.classList.contains('hidden')) {
+      showRanking(rankTab);
+    }
   }
 
   // --- Login y ranking ---------------------------------------------------
@@ -155,7 +172,7 @@ const Game = (() => {
     }
     if (!Moderation.isAllowed(name)) {
       dom.nick.value = '';
-      dom.nick.placeholder = 'Ese nombre no está permitido';
+      dom.nick.placeholder = I18n.t('nameNotAllowed');
       dom.nick.focus();
       return;
     }
@@ -178,7 +195,7 @@ const Game = (() => {
     if (!entries || entries.length === 0) {
       const li = document.createElement('li');
       li.className = 'rank-empty';
-      li.textContent = 'Aún no hay marcas en este modo. ¡Sé el primero!';
+      li.textContent = I18n.t('rankEmpty');
       listEl.appendChild(li);
       return;
     }
@@ -210,22 +227,22 @@ const Game = (() => {
     const req = ++rankRequest;
 
     if (!Leaderboard.remoteEnabled()) {
-      dom['rank-status'].textContent = '📱 Ranking local (este dispositivo)';
+      dom['rank-status'].textContent = I18n.t('rankLocal');
       renderRankList(Leaderboard.top(modeKey, 10));
       return;
     }
 
-    dom['rank-status'].textContent = '🌍 Cargando ranking mundial…';
+    dom['rank-status'].textContent = I18n.t('rankLoading');
     dom['rank-list'].textContent = '';
     Leaderboard.topGlobal(modeKey, 10)
       .then((entries) => {
         if (req !== rankRequest) return; // respuesta obsoleta
-        dom['rank-status'].textContent = '🌍 Ranking mundial';
+        dom['rank-status'].textContent = I18n.t('rankWorld');
         renderRankList(entries);
       })
       .catch(() => {
         if (req !== rankRequest) return;
-        dom['rank-status'].textContent = '📱 Sin conexión: ranking local';
+        dom['rank-status'].textContent = I18n.t('rankOffline');
         renderRankList(Leaderboard.top(modeKey, 10));
       });
   }
@@ -237,7 +254,7 @@ const Game = (() => {
   }
 
   function updateMusicButton() {
-    dom['btn-music'].textContent = Music.isEnabled() ? '🔊 Música: sí' : '🔇 Música: no';
+    dom['btn-music'].textContent = Music.isEnabled() ? I18n.t('musicOn') : I18n.t('musicOff');
   }
 
   function resize() {
@@ -272,7 +289,7 @@ const Game = (() => {
     Modes.ALL.forEach((mode) => {
       const best = loadBest(mode.storageKey);
       dom[`best-${mode.key}`].textContent =
-        best > 0 ? `Récord: ${best} m` : 'Sin récord';
+        best > 0 ? I18n.t('recordShort', { m: best }) : I18n.t('noRecord');
     });
   }
 
@@ -340,9 +357,12 @@ const Game = (() => {
   function showGameOver() {
     dom.hud.classList.add('hidden');
     dom['go-title'].textContent =
-      state.cause === 'fall' ? '¡AL POZO!' : '¡TE ESTRELLASTE!';
+      state.cause === 'fall' ? I18n.t('fallTitle') : I18n.t('crashTitle');
     dom['go-distance'].textContent = String(meters());
-    dom['go-best'].textContent = `Récord (${Modes.get().label}): ${state.best} m`;
+    dom['go-best'].textContent = I18n.t('recordMode', {
+      mode: I18n.t(Modes.get().labelKey),
+      m: state.best,
+    });
     if (state.isRecord) {
       dom['go-record'].classList.remove('hidden');
       GameAudio.record();
@@ -361,10 +381,10 @@ const Game = (() => {
       best: state.best,
       isRecord: state.isRecord,
       modeKey: Modes.get().key,
-      modeLabel: Modes.get().label,
+      modeLabel: I18n.t(Modes.get().labelKey),
     })
       .then((result) => {
-        btn.textContent = result === 'downloaded' ? '✓ IMAGEN GUARDADA' : original;
+        btn.textContent = result === 'downloaded' ? I18n.t('imgSaved') : original;
         if (result === 'downloaded') {
           setTimeout(() => { btn.textContent = original; }, 2200);
         }

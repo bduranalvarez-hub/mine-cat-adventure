@@ -6,6 +6,7 @@ const Modes = (() => {
   const NORMAL = Object.freeze({
     key: 'normal', // la clave interna no cambia: conserva récords y ranking
     label: 'FÁCIL',
+    labelKey: 'modeEasyClean',
     baseSpeed: 450,
     maxSpeed: 980,
     speedRamp: 8.5,
@@ -35,6 +36,7 @@ const Modes = (() => {
   const HARD = Object.freeze({
     key: 'hard',
     label: 'DIFÍCIL',
+    labelKey: 'modeHardClean',
     baseSpeed: 560,
     maxSpeed: 1160,
     speedRamp: 11,
@@ -65,6 +67,7 @@ const Modes = (() => {
   const HARDCORE = Object.freeze({
     key: 'hardcore',
     label: 'HARDCORE',
+    labelKey: 'modeHardcoreClean',
     baseSpeed: 700,
     maxSpeed: 1350,
     speedRamp: 14,

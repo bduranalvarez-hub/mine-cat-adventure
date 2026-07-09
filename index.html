@@ -21,63 +21,66 @@
 
   <div id="login" class="overlay hidden">
     <h1>MINE CAT<br>ADVENTURE</h1>
-    <p class="subtitle">Un sphynx, una vagoneta, una mina infinita</p>
-    <label class="login-label" for="nick">¿Cómo te llamas, minero?</label>
+    <p class="subtitle" data-i18n="subtitle">Un sphynx, una vagoneta, una mina infinita</p>
+    <label class="login-label" for="nick" data-i18n="loginLabel">¿Cómo te llamas, minero?</label>
     <input id="nick" type="text" maxlength="12" autocomplete="off"
-           spellcheck="false" placeholder="Tu nombre" />
-    <button id="btn-login" class="mode-btn">ENTRAR A LA MINA</button>
+           spellcheck="false" data-i18n-ph="nickPlaceholder" placeholder="Tu nombre" />
+    <button id="btn-login" class="mode-btn" data-i18n="btnLogin">ENTRAR A LA MINA</button>
+    <button id="btn-lang-login" class="link-btn lang-toggle" data-i18n="langBtn">🌐 Idioma: Español</button>
   </div>
 
   <div id="menu" class="overlay hidden">
     <h1>MINE CAT<br>ADVENTURE</h1>
     <p class="player-row">
-      Minero: <strong id="player-name"></strong>
-      <button id="btn-logout" class="link-btn">cambiar</button>
+      <span data-i18n="playerPrefix">Minero:</span> <strong id="player-name"></strong>
+      <button id="btn-logout" class="link-btn" data-i18n="change">cambiar</button>
     </p>
     <div class="mode-buttons">
       <button id="btn-normal" class="mode-btn">
-        FÁCIL
+        <span data-i18n="modeEasy">FÁCIL</span>
         <span id="best-normal" class="btn-best"></span>
       </button>
       <button id="btn-hard" class="mode-btn hard">
-        🔥 DIFÍCIL
+        <span data-i18n="modeHard">🔥 DIFÍCIL</span>
         <span id="best-hard" class="btn-best"></span>
       </button>
       <button id="btn-hardcore" class="mode-btn hardcore">
-        ☠️ HARDCORE
+        <span data-i18n="modeHardcore">☠️ HARDCORE</span>
         <span id="best-hardcore" class="btn-best"></span>
       </button>
-      <button id="btn-ranking" class="mode-btn small">🏆 RANKING</button>
+      <button id="btn-ranking" class="mode-btn small" data-i18n="ranking">🏆 RANKING</button>
     </div>
     <button id="btn-music" class="link-btn music-toggle">🔊 Música: sí</button>
-    <p class="help">Toca para saltar: tap corto, salto corto;<br>mantén presionado para el salto máximo.</p>
-    <a class="link-btn privacy-link" href="privacy.html">Política de privacidad</a>
+    <button id="btn-lang" class="link-btn lang-toggle" data-i18n="langBtn">🌐 Idioma: Español</button>
+    <p class="help" data-i18n-html="help">Toca para saltar: tap corto, salto corto;<br>mantén presionado para el salto máximo.</p>
+    <a class="link-btn privacy-link" href="privacy.html" data-i18n="privacy">Política de privacidad</a>
   </div>
 
   <div id="ranking" class="overlay hidden">
-    <h2 class="rank-title">🏆 RANKING</h2>
+    <h2 class="rank-title" data-i18n="rankTitle">🏆 RANKING</h2>
     <div class="rank-tabs">
-      <button id="tab-normal" class="tab-btn">FÁCIL</button>
-      <button id="tab-hard" class="tab-btn">DIFÍCIL</button>
-      <button id="tab-hardcore" class="tab-btn">HARDCORE</button>
+      <button id="tab-normal" class="tab-btn" data-i18n="tabEasy">FÁCIL</button>
+      <button id="tab-hard" class="tab-btn" data-i18n="tabHard">DIFÍCIL</button>
+      <button id="tab-hardcore" class="tab-btn" data-i18n="tabHardcore">HARDCORE</button>
     </div>
     <p id="rank-status" class="rank-status"></p>
     <ol id="rank-list" class="rank-list"></ol>
-    <button id="btn-rank-back" class="mode-btn small">VOLVER</button>
+    <button id="btn-rank-back" class="mode-btn small" data-i18n="back">VOLVER</button>
   </div>
 
   <div id="gameover" class="overlay hidden">
     <h2 id="go-title">¡TE ESTRELLASTE!</h2>
     <p class="result"><span id="go-distance">0</span> m</p>
-    <p id="go-record" class="record hidden">¡NUEVO RÉCORD!</p>
+    <p id="go-record" class="record hidden" data-i18n="newRecord">¡NUEVO RÉCORD!</p>
     <p id="go-best" class="best"></p>
-    <p id="go-retry" class="blink hidden">TOCA PARA REINTENTAR</p>
+    <p id="go-retry" class="blink hidden" data-i18n="retry">TOCA PARA REINTENTAR</p>
     <div id="go-buttons" class="go-buttons hidden">
-      <button id="go-share" class="mode-btn small">📤 COMPARTIR</button>
-      <button id="go-menu" class="mode-btn small">CAMBIAR MODO</button>
+      <button id="go-share" class="mode-btn small" data-i18n="share">📤 COMPARTIR</button>
+      <button id="go-menu" class="mode-btn small" data-i18n="changeMode">CAMBIAR MODO</button>
     </div>
   </div>
 
+  <script src="js/i18n.js"></script>
   <script src="js/config.js"></script>
   <script src="js/modes.js"></script>
   <script src="js/audio.js"></script>

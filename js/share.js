@@ -43,8 +43,8 @@ const Share = (() => {
       ctx.fillStyle = '#8a7256';
       ctx.font = 'bold 15px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('SIN', 0, -2);
-      ctx.fillText('MEDALLA', 0, 16);
+      ctx.fillText(I18n.t('cardNoMedal1'), 0, -2);
+      ctx.fillText(I18n.t('cardNoMedal2'), 0, 16);
       ctx.restore();
       return;
     }
@@ -141,8 +141,8 @@ const Share = (() => {
     // Puntuación y récord.
     ctx.fillStyle = '#6b4a26';
     ctx.font = '700 26px system-ui, sans-serif';
-    ctx.fillText('DISTANCIA', px + pw * 0.3, py + 60);
-    ctx.fillText('RÉCORD', px + pw * 0.7, py + 60);
+    ctx.fillText(I18n.t('cardDistance'), px + pw * 0.3, py + 60);
+    ctx.fillText(I18n.t('cardRecord'), px + pw * 0.7, py + 60);
 
     ctx.fillStyle = '#3a2412';
     ctx.font = '900 76px system-ui, sans-serif';
@@ -150,8 +150,8 @@ const Share = (() => {
     ctx.fillText(`${data.best}`, px + pw * 0.7, py + 140);
     ctx.font = '700 24px system-ui, sans-serif';
     ctx.fillStyle = '#6b4a26';
-    ctx.fillText('metros', px + pw * 0.3, py + 172);
-    ctx.fillText('metros', px + pw * 0.7, py + 172);
+    ctx.fillText(I18n.t('cardMeters'), px + pw * 0.3, py + 172);
+    ctx.fillText(I18n.t('cardMeters'), px + pw * 0.7, py + 172);
 
     // Insignia de modo.
     const modeColors = {
@@ -170,7 +170,7 @@ const Share = (() => {
     // Medalla.
     ctx.fillStyle = '#6b4a26';
     ctx.font = '700 22px system-ui, sans-serif';
-    ctx.fillText('MEDALLA', px + pw - 130, py + 218);
+    ctx.fillText(I18n.t('cardMedal'), px + pw - 130, py + 218);
     drawMedal(ctx, px + pw - 130, py + 262, data.meters);
 
     // --- Banner de récord ---
@@ -181,7 +181,7 @@ const Share = (() => {
       ctx.font = '900 40px system-ui, sans-serif';
       ctx.shadowColor = 'rgba(0,0,0,0.6)';
       ctx.shadowBlur = 6;
-      ctx.fillText('¡NUEVO RÉCORD!', 0, 0);
+      ctx.fillText(I18n.t('cardNewRecord'), 0, 0);
       ctx.restore();
     }
 
@@ -233,8 +233,8 @@ const Share = (() => {
 
   function shareText(data) {
     const url = gameUrl();
-    return `¡Recorrí ${data.meters} m en Mine Cat Adventure (${data.modeLabel})! ` +
-      `¿Puedes superarme? 🐈🛒${url ? `\n${url}` : ''}`;
+    const msg = I18n.t('shareText', { m: data.meters, mode: data.modeLabel });
+    return `${msg}${url ? `\n${url}` : ''}`;
   }
 
   // Devuelve un estado para avisar al usuario: 'shared' | 'downloaded' | 'cancelled'.
