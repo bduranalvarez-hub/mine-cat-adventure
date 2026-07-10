@@ -6,12 +6,48 @@
 const Background = (() => {
   const DUST_COUNT = 26;
   const TILE = 260;
+  const TIER_FADE_SECONDS = 1.4; // duración del fundido entre minerales
+  const GLINT_CELL = 190; // celda de mundo donde puede haber un destello
+
+  // Niveles de mineral, ligados a los mismos umbrales que las medallas
+  // (CONFIG.MEDAL_METERS). Al alcanzarlos, la roca del fondo cambia de
+  // color. Los destellos aparecen desde la plata y son más densos
+  // cuanto más valioso es el mineral.
+  const MEDAL = CONFIG.MEDAL_METERS;
+  const ORE_TIERS = [
+    { min: 0, base: '#201007',
+      stone: ['rgba(66,38,20,0.85)', 'rgba(22,11,5,0.85)'],
+      wall: [[16, 7, 2], [34, 17, 7], [21, 10, 4]],
+      hl: '#8a5c34', hlAlpha: 0.30, glintDensity: 0, glint: null },
+    { min: MEDAL.BRONZE, base: '#1f0f06',
+      stone: ['rgba(104,54,20,0.86)', 'rgba(28,12,5,0.88)'],
+      wall: [[18, 7, 3], [39, 18, 8], [22, 10, 4]],
+      hl: '#f3c48f', hlAlpha: 0.42, glintDensity: 0, glint: null },
+    { min: MEDAL.SILVER, base: '#121316',
+      stone: ['rgba(80,84,95,0.86)', 'rgba(18,20,24,0.9)'],
+      wall: [[10, 11, 13], [25, 27, 32], [14, 15, 18]],
+      hl: '#f2f3f8', hlAlpha: 0.50, glintDensity: 0.10, glint: [242, 246, 255] },
+    { min: MEDAL.GOLD, base: '#1e1505',
+      stone: ['rgba(126,93,22,0.87)', 'rgba(32,22,5,0.9)'],
+      wall: [[16, 10, 2], [36, 26, 6], [19, 13, 3]],
+      hl: '#ffe9a0', hlAlpha: 0.50, glintDensity: 0.17, glint: [255, 233, 160] },
+    { min: MEDAL.PLATINUM, base: '#0f151a',
+      stone: ['rgba(86,107,122,0.86)', 'rgba(15,21,26,0.9)'],
+      wall: [[7, 11, 14], [20, 29, 36], [10, 15, 19]],
+      hl: '#dff2fb', hlAlpha: 0.55, glintDensity: 0.27, glint: [234, 250, 255] },
+  ];
 
   let dust = [];
-  let rockTile = null;
-  let rockPattern = null;
+  const tiles = [];     // textura de roca horneada, por nivel
+  const patterns = [];  // patrón repetible, por nivel
+  const glintSprites = []; // sprite de destello, por nivel
   let vignette = null;
   let vignetteKey = '';
+
+  // Fundido entre el nivel visible y el recién alcanzado.
+  let shownTier = 0;
+  let nextTier = 0;
+  let fade = 1; // 1 = transición terminada
 
   function reset(viewW, viewH) {
     dust = Array.from({ length: DUST_COUNT }, () => ({
@@ -21,84 +57,247 @@ const Background = (() => {
       speed: 0.05 + Math.random() * 0.2,
       drift: (Math.random() - 0.5) * 12,
     }));
+    shownTier = 0;
+    nextTier = 0;
+    fade = 1;
+
+    // Se hornean todas las texturas por adelantado (una sola vez): así
+    // cruzar un umbral a mitad de partida nunca provoca un tirón.
+    for (let i = 0; i < ORE_TIERS.length; i += 1) {
+      if (!tiles[i]) tiles[i] = bakeRockTile(i);
+    }
   }
 
-  // --- Textura de roca (tile repetible) ----------------------------------
-  function bakeRockTile() {
+  function tierIndexFor(meters) {
+    for (let i = ORE_TIERS.length - 1; i >= 0; i -= 1) {
+      if (meters >= ORE_TIERS[i].min) return i;
+    }
+    return 0;
+  }
+
+  // Hash determinista: mismas posiciones de destello en cada partida,
+  // ancladas al mundo (no al mosaico), así no se repiten visiblemente.
+  function hash2(x, y) {
+    let h = Math.imul(x, 374761393) + Math.imul(y, 668265263);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+
+  // --- Textura de roca (tile repetible, uno por nivel) --------------------
+  function bakeRockTile(tierIdx) {
+    const tier = ORE_TIERS[tierIdx];
     const c = document.createElement('canvas');
     c.width = TILE;
     c.height = TILE;
     const b = c.getContext('2d');
-    b.fillStyle = '#201007';
+    b.fillStyle = tier.base;
     b.fillRect(0, 0, TILE, TILE);
+
+    // Semilla fija: las piedras ocupan las mismas posiciones en todos
+    // los niveles, de modo que al cambiar de mineral solo cambia el
+    // color, no el relieve.
+    let seed = 12345;
+    const rnd = () => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return seed / 4294967296;
+    };
+
+    const stonePath = (x, y, r, s) => {
+      b.beginPath();
+      const sides = 7;
+      for (let k = 0; k <= sides; k += 1) {
+        const a = (k / sides) * Math.PI * 2;
+        const rr = r * (0.72 + Math.sin(a * 3 + s) * 0.2);
+        const px = x + Math.cos(a) * rr;
+        const py = y + Math.sin(a) * rr;
+        if (k === 0) b.moveTo(px, py);
+        else b.lineTo(px, py);
+      }
+      b.closePath();
+    };
 
     // Cada roca se dibuja también desplazada ±TILE para que el patrón
     // no tenga costuras.
-    const drawStone = (x, y, r, seed) => {
+    const drawStone = (x, y, r, s) => {
       [-TILE, 0, TILE].forEach((ox) => {
         [-TILE, 0, TILE].forEach((oy) => {
+          const cx = x + ox;
+          const cy = y + oy;
           const g = b.createRadialGradient(
-            x + ox - r * 0.35, y + oy - r * 0.45, r * 0.15,
-            x + ox, y + oy, r * 1.1
+            cx - r * 0.35, cy - r * 0.45, r * 0.15, cx, cy, r * 1.1
           );
-          g.addColorStop(0, 'rgba(66, 38, 20, 0.85)');
-          g.addColorStop(1, 'rgba(22, 11, 5, 0.85)');
+          g.addColorStop(0, tier.stone[0]);
+          g.addColorStop(1, tier.stone[1]);
           b.fillStyle = g;
-          b.beginPath();
-          const sides = 7;
-          for (let k = 0; k <= sides; k += 1) {
-            const a = (k / sides) * Math.PI * 2;
-            const rr = r * (0.72 + Math.sin(a * 3 + seed) * 0.2);
-            const px = x + ox + Math.cos(a) * rr;
-            const py = y + oy + Math.sin(a) * rr;
-            if (k === 0) b.moveTo(px, py);
-            else b.lineTo(px, py);
-          }
-          b.closePath();
+          stonePath(cx, cy, r, s);
           b.fill();
-          b.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+          b.strokeStyle = 'rgba(0, 0, 0, 0.38)';
           b.lineWidth = 1.6;
           b.stroke();
+
+          // Faceta metálica: el borde superior izquierdo capta la luz
+          // y se apaga hacia el inferior derecho.
+          const lg = b.createLinearGradient(cx - r, cy - r, cx + r * 0.6, cy + r * 0.6);
+          lg.addColorStop(0, tier.hl);
+          lg.addColorStop(0.45, 'rgba(255,255,255,0.10)');
+          lg.addColorStop(1, 'rgba(255,255,255,0)');
+          b.save();
+          b.globalAlpha = tier.hlAlpha;
+          b.strokeStyle = lg;
+          b.lineWidth = 1.9;
+          stonePath(cx, cy, r, s);
+          b.stroke();
+          b.restore();
+
+          // Lustre interior suave.
+          const sg = b.createRadialGradient(
+            cx - r * 0.4, cy - r * 0.45, 0.5, cx - r * 0.4, cy - r * 0.45, r * 0.85
+          );
+          sg.addColorStop(0, `rgba(255,255,255,${0.16 * tier.hlAlpha * 2})`);
+          sg.addColorStop(1, 'rgba(255,255,255,0)');
+          b.save();
+          stonePath(cx, cy, r, s);
+          b.clip();
+          b.fillStyle = sg;
+          b.fillRect(cx - r * 1.2, cy - r * 1.2, r * 2.4, r * 2.4);
+          b.restore();
         });
       });
     };
 
     for (let i = 0; i < 22; i += 1) {
-      drawStone(
-        Math.random() * TILE,
-        Math.random() * TILE,
-        16 + Math.random() * 30,
-        i * 2.3
-      );
-    }
-
-    // Vetas doradas diminutas.
-    b.fillStyle = 'rgba(255, 205, 100, 0.5)';
-    for (let i = 0; i < 9; i += 1) {
-      b.fillRect(Math.random() * TILE, Math.random() * TILE, 2.2, 2.2);
+      drawStone(rnd() * TILE, rnd() * TILE, 16 + rnd() * 30, i * 2.3);
     }
     return c;
   }
 
-  function drawWall(ctx, worldX, camY, viewW, viewH) {
+  function patternFor(ctx, tierIdx) {
+    if (!tiles[tierIdx]) tiles[tierIdx] = bakeRockTile(tierIdx);
+    if (!patterns[tierIdx]) {
+      patterns[tierIdx] = ctx.createPattern(tiles[tierIdx], 'repeat');
+    }
+    return patterns[tierIdx];
+  }
+
+  // Sprite de destello (se estampa con blending aditivo).
+  function glintSprite(rgb) {
+    const S = 48;
+    const c = document.createElement('canvas');
+    c.width = c.height = S;
+    const b = c.getContext('2d');
+    const [r, g, bl] = rgb;
+    const grad = b.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+    grad.addColorStop(0.3, `rgba(${r},${g},${bl},0.35)`);
+    grad.addColorStop(1, `rgba(${r},${g},${bl},0)`);
+    b.fillStyle = grad;
+    b.beginPath();
+    b.arc(S / 2, S / 2, S / 2, 0, Math.PI * 2);
+    b.fill();
+    b.strokeStyle = 'rgba(255,255,255,0.8)';
+    b.lineWidth = 1.6;
+    b.lineCap = 'round';
+    b.beginPath();
+    b.moveTo(4, S / 2); b.lineTo(S - 4, S / 2);
+    b.moveTo(S / 2, 4); b.lineTo(S / 2, S - 4);
+    b.stroke();
+    return c;
+  }
+
+  // Avanza el fundido hacia el nivel de mineral que corresponde a la
+  // distancia recorrida en esta partida.
+  function updateTier(worldX, dt) {
+    const meters = worldX / CONFIG.UNITS_PER_METER;
+    const target = tierIndexFor(meters);
+    if (target !== nextTier) {
+      shownTier = nextTier;
+      nextTier = target;
+      fade = 0;
+    }
+    if (fade < 1) {
+      fade = Math.min(1, fade + dt / TIER_FADE_SECONDS);
+      if (fade >= 1) shownTier = nextTier;
+    }
+  }
+
+  function wallGradient(ctx, viewH) {
+    const a = ORE_TIERS[shownTier].wall;
+    const b = ORE_TIERS[nextTier].wall;
     const grad = ctx.createLinearGradient(0, 0, 0, viewH);
-    grad.addColorStop(0, '#100702');
-    grad.addColorStop(0.5, '#221107');
-    grad.addColorStop(1, '#150a04');
-    ctx.fillStyle = grad;
+    for (let i = 0; i < 3; i += 1) {
+      const r = Math.round(a[i][0] + (b[i][0] - a[i][0]) * fade);
+      const g = Math.round(a[i][1] + (b[i][1] - a[i][1]) * fade);
+      const bl = Math.round(a[i][2] + (b[i][2] - a[i][2]) * fade);
+      grad.addColorStop(i * 0.5, `rgb(${r},${g},${bl})`);
+    }
+    return grad;
+  }
+
+  function drawWall(ctx, worldX, camY, viewW, viewH) {
+    ctx.fillStyle = wallGradient(ctx, viewH);
     ctx.fillRect(0, 0, viewW, viewH);
 
-    if (!rockTile) rockTile = bakeRockTile();
-    if (!rockPattern) rockPattern = ctx.createPattern(rockTile, 'repeat');
     const ox = -((worldX * 0.15) % TILE);
     const oy = -((camY * 0.2) % TILE);
     ctx.save();
     ctx.translate(ox, oy);
-    ctx.fillStyle = rockPattern;
     ctx.globalAlpha = 0.85;
+    ctx.fillStyle = patternFor(ctx, shownTier);
     ctx.fillRect(-TILE, -TILE, viewW + TILE * 2, viewH + TILE * 2);
+    if (nextTier !== shownTier) {
+      // El mineral nuevo aparece por encima del anterior.
+      ctx.globalAlpha = 0.85 * fade;
+      ctx.fillStyle = patternFor(ctx, nextTier);
+      ctx.fillRect(-TILE, -TILE, viewW + TILE * 2, viewH + TILE * 2);
+    }
     ctx.globalAlpha = 1;
     ctx.restore();
+  }
+
+  // Destellos titilantes sobre la roca. Se calculan en cada frame a
+  // partir de coordenadas de mundo (no se hornean en el mosaico), así
+  // no aparecen repetidos en una cuadrícula visible.
+  function drawGlintsForTier(ctx, tierIdx, worldX, camY, viewW, viewH, time, alpha) {
+    const tier = ORE_TIERS[tierIdx];
+    if (!tier.glint || tier.glintDensity <= 0 || alpha <= 0.01) return;
+    if (!glintSprites[tierIdx]) glintSprites[tierIdx] = glintSprite(tier.glint);
+    const sprite = glintSprites[tierIdx];
+
+    // Mismo parallax que la pared de roca: los destellos van pegados a ella.
+    const px = worldX * 0.15;
+    const py = camY * 0.2;
+    const cx0 = Math.floor((px - GLINT_CELL) / GLINT_CELL);
+    const cx1 = Math.floor((px + viewW + GLINT_CELL) / GLINT_CELL);
+    const cy0 = Math.floor((py - GLINT_CELL) / GLINT_CELL);
+    const cy1 = Math.floor((py + viewH + GLINT_CELL) / GLINT_CELL);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let cx = cx0; cx <= cx1; cx += 1) {
+      for (let cy = cy0; cy <= cy1; cy += 1) {
+        // Los niveles ricos usan una densidad mayor sobre el mismo
+        // hash, así los destellos se acumulan en vez de reubicarse.
+        if (hash2(cx, cy) > tier.glintDensity) continue;
+        const gx = cx * GLINT_CELL + hash2(cx + 1013, cy - 77) * GLINT_CELL - px;
+        const gy = cy * GLINT_CELL + hash2(cx - 91, cy + 557) * GLINT_CELL - py;
+        const phase = hash2(cx + 31, cy + 17);
+        const pulse = Math.max(0, Math.sin(time * 1.9 + phase * Math.PI * 2));
+        const tw = pulse * pulse * pulse * pulse * pulse * pulse; // picos breves
+        const size = 16 + 16 * tw;
+        ctx.globalAlpha = alpha * (0.18 + 0.82 * tw);
+        ctx.drawImage(sprite, gx - size / 2, gy - size / 2, size, size);
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawGlints(ctx, worldX, camY, viewW, viewH, time) {
+    if (nextTier !== shownTier) {
+      drawGlintsForTier(ctx, shownTier, worldX, camY, viewW, viewH, time, 1 - fade);
+      drawGlintsForTier(ctx, nextTier, worldX, camY, viewW, viewH, time, fade);
+    } else {
+      drawGlintsForTier(ctx, shownTier, worldX, camY, viewW, viewH, time, 1);
+    }
   }
 
   // Rejilla de madera del fondo (parallax lento) con pernos.
@@ -261,7 +460,10 @@ const Background = (() => {
   }
 
   function draw(ctx, state, dt, viewW, viewH) {
+    updateTier(state.worldX, dt);
     drawWall(ctx, state.worldX, state.camY, viewW, viewH);
+    // Los destellos van sobre la roca pero DETRÁS de la madera.
+    drawGlints(ctx, state.worldX, state.camY, viewW, viewH, state.time);
     drawLattice(ctx, state.worldX, state.camY, viewW, viewH);
     drawBeams(ctx, state.worldX, state.camY, viewW, viewH, state.time);
     drawDust(ctx, dt, state.speed, viewW, viewH);

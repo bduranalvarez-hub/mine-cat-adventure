@@ -9,6 +9,16 @@ const CONFIG = Object.freeze({
   // físico tengan. Igual para los tres modos. Ver resize() en game.js.
   MIN_VIEW_WIDTH: 850,
 
+  // Distancia (en metros) para cada medalla. Fuente única: la usan la
+  // tarjeta de compartir (share.js) y el mineral del fondo de la mina
+  // (background.js), de modo que siempre coincidan.
+  MEDAL_METERS: Object.freeze({
+    BRONZE: 100,
+    SILVER: 300,
+    GOLD: 700,
+    PLATINUM: 1500,
+  }),
+
   GRAVITY: 2500,
   JUMP_VELOCITY: -940,
   // Al soltar el toque mientras sube, la velocidad se recorta a este

@@ -22,6 +22,11 @@ dispositivo.
 - **📤 COMPARTIR**: al morir, genera una tarjeta-imagen con tu marca,
   medalla y modo, y la comparte por el menú nativo del móvil (WhatsApp,
   Instagram, etc.). En escritorio descarga la imagen y copia el texto.
+- **La mina cambia de mineral** al alcanzar cada medalla: bronce a los
+  100 m, plata a los 300, oro a los 700 y platino a los 1500. La roca
+  se recolorea con un fundido y, desde la plata, aparecen destellos que
+  titilan (cada vez más, hasta el platino). Los umbrales viven en
+  `CONFIG.MEDAL_METERS` y los comparten el fondo y la tarjeta.
 - **Tocar la pantalla** (o `Espacio` / `↑` en PC): saltar.
 - La pista sube y baja como una montaña rusa: cuesta abajo la vagoneta
   acelera y cuesta arriba se frena. Además los tramos están **a
@@ -93,7 +98,7 @@ js/share.js              Tarjeta-imagen para compartir puntuación
 js/audio.js              Efectos de sonido con WebAudio (sin archivos)
 js/input.js              Entrada táctil, ratón y teclado
 js/sprites.js            Dibujo vectorial de gatos y vagonetas
-js/background.js         Fondo de mina con parallax y polvo
+js/background.js         Fondo de mina con parallax, polvo y mineral por medalla
 js/track.js              Generación infinita de rieles y huecos
 js/obstacles.js          Vagonetas enemigas (aparición y colisiones)
 js/player.js             Física del jugador (salto, gravedad, aterrizaje)

@@ -10,10 +10,10 @@ const Share = (() => {
 
   // Medallas por distancia (universal a todos los modos).
   const MEDALS = [
-    { min: 1500, name: 'PLATINO', a: '#e6f7ff', b: '#7ec8e3', ring: '#4a90a4' },
-    { min: 700, name: 'ORO', a: '#ffe57a', b: '#f0a800', ring: '#a86f00' },
-    { min: 300, name: 'PLATA', a: '#f0f0f5', b: '#a8a8b8', ring: '#6e6e7c' },
-    { min: 100, name: 'BRONCE', a: '#f0b878', b: '#b06a28', ring: '#7a4818' },
+    { min: CONFIG.MEDAL_METERS.PLATINUM, name: 'PLATINO', a: '#e6f7ff', b: '#7ec8e3', ring: '#4a90a4' },
+    { min: CONFIG.MEDAL_METERS.GOLD, name: 'ORO', a: '#ffe57a', b: '#f0a800', ring: '#a86f00' },
+    { min: CONFIG.MEDAL_METERS.SILVER, name: 'PLATA', a: '#f0f0f5', b: '#a8a8b8', ring: '#6e6e7c' },
+    { min: CONFIG.MEDAL_METERS.BRONZE, name: 'BRONCE', a: '#f0b878', b: '#b06a28', ring: '#7a4818' },
   ];
 
   function medalFor(meters) {
