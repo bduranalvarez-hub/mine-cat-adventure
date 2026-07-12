@@ -97,7 +97,11 @@ grant execute on function public.top_scores(text, int) to anon;
 -- (ni lectura ni escritura): solo las funciones SECURITY DEFINER de
 -- abajo pueden tocarla, así el hash del PIN nunca sale del servidor.
 -- ============================================================
-create extension if not exists pgcrypto;
+-- Supabase suele instalar pgcrypto en el esquema "extensions" (no en
+-- "public"). Si el proyecto no la tenía, esto la crea ahí; si ya
+-- existía en otro esquema, "if not exists" no la mueve, pero
+-- search_path = public, extensions (en auth_account) cubre ambos casos.
+create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.accounts (
   id              bigint generated always as identity primary key,
@@ -142,7 +146,11 @@ create or replace function public.auth_account(p_name text, p_pin text)
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+-- pgcrypto (crypt/gen_salt) vive en el esquema "extensions" en
+-- Supabase, no en "public": sin agregarlo aquí, la función no
+-- encuentra esas funciones y falla con "gen_salt(unknown) does not
+-- exist" aunque la extensión esté instalada.
+set search_path = public, extensions
 as $$
 declare
   v_name text := trim(p_name);
