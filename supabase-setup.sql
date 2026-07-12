@@ -100,17 +100,26 @@ grant execute on function public.top_scores(text, int) to anon;
 create extension if not exists pgcrypto;
 
 create table if not exists public.accounts (
-  id             bigint generated always as identity primary key,
-  name           text        not null check (char_length(name) between 1 and 14),
-  name_lower     text        not null generated always as (lower(name)) stored,
-  pin_hash       text        not null,
-  session_token  text        not null,
-  coins          int         not null default 0 check (coins >= 0),
-  skins_owned    jsonb       not null default '["sphynx"]'::jsonb,
-  active_skin    text        not null default 'sphynx',
-  created_at     timestamptz not null default now(),
-  updated_at     timestamptz not null default now()
+  id              bigint generated always as identity primary key,
+  name            text        not null check (char_length(name) between 1 and 14),
+  name_lower      text        not null generated always as (lower(name)) stored,
+  pin_hash        text        not null,
+  session_token   text        not null,
+  coins           int         not null default 0 check (coins >= 0),
+  skins_owned     jsonb       not null default '["sphynx"]'::jsonb,
+  active_skin     text        not null default 'sphynx',
+  -- Bloqueo por intentos fallidos: un PIN de 4 dígitos solo tiene
+  -- 10.000 combinaciones, así que sin límite de intentos cualquiera
+  -- podría adivinarlo probando todas. Ver auth_account más abajo.
+  failed_attempts int         not null default 0,
+  locked_until    timestamptz,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
 );
+
+-- Por si la tabla ya existía de una versión anterior de este script.
+alter table public.accounts add column if not exists failed_attempts int not null default 0;
+alter table public.accounts add column if not exists locked_until timestamptz;
 
 create unique index if not exists accounts_name_lower_key
   on public.accounts (name_lower);
@@ -120,9 +129,15 @@ alter table public.accounts enable row level security;
 -- completo desde el cliente. Todo pasa por las funciones de abajo.
 
 -- Inicia sesión o crea la cuenta si el nombre no existe todavía
--- (evita una pantalla de registro aparte). Si el nombre ya existe,
--- el PIN debe coincidir o falla con 'pin_incorrecto'. Los nombres son
--- únicos sin distinguir mayúsculas (constraint sobre name_lower).
+-- (evita una pantalla de registro aparte). Si el nombre ya existe, el
+-- PIN debe coincidir. Los nombres son únicos sin distinguir mayúsculas
+-- (constraint sobre name_lower).
+--
+-- Rate limit: 5 PIN incorrectos seguidos bloquean la cuenta 5 minutos.
+-- Los errores esperados (PIN incorrecto, cuenta bloqueada, etc.) se
+-- devuelven como {"error": "..."} en vez de con raise exception: una
+-- excepción deshace TODO el trabajo de la función, incluyendo el
+-- contador de intentos fallidos que justo queremos conservar.
 create or replace function public.auth_account(p_name text, p_pin text)
 returns jsonb
 language plpgsql
@@ -132,23 +147,60 @@ as $$
 declare
   v_name text := trim(p_name);
   v_row public.accounts;
+  v_max_attempts constant int := 5;
+  v_lockout_seconds constant int := 300;
+  v_base_attempts int;
+  v_new_attempts int;
+  v_remaining int;
 begin
   if v_name = '' or char_length(v_name) > 14 then
-    raise exception 'nombre_invalido';
+    return jsonb_build_object('error', 'nombre_invalido');
   end if;
   if p_pin !~ '^[0-9]{4,8}$' then
-    raise exception 'pin_invalido';
+    return jsonb_build_object('error', 'pin_invalido');
   end if;
 
-  select * into v_row from public.accounts where name_lower = lower(v_name);
+  select * into v_row from public.accounts where name_lower = lower(v_name) for update;
 
   if found then
-    if v_row.pin_hash <> crypt(p_pin, v_row.pin_hash) then
-      raise exception 'pin_incorrecto';
+    if v_row.locked_until is not null and v_row.locked_until > now() then
+      v_remaining := ceil(extract(epoch from (v_row.locked_until - now())));
+      return jsonb_build_object('error', 'cuenta_bloqueada', 'retryAfter', v_remaining);
     end if;
-    if v_row.session_token is null or v_row.session_token = '' then
+
+    if v_row.pin_hash <> crypt(p_pin, v_row.pin_hash) then
+      -- Si el bloqueo anterior ya venció, el contador arranca de
+      -- nuevo: el jugador recupera intentos frescos tras esperar.
+      v_base_attempts := case
+        when v_row.locked_until is not null and v_row.locked_until <= now() then 0
+        else v_row.failed_attempts
+      end;
+      v_new_attempts := v_base_attempts + 1;
+
+      if v_new_attempts >= v_max_attempts then
+        update public.accounts
+          set failed_attempts = v_new_attempts,
+              locked_until = now() + make_interval(secs => v_lockout_seconds),
+              updated_at = now()
+          where id = v_row.id;
+        return jsonb_build_object(
+          'error', 'cuenta_bloqueada', 'retryAfter', v_lockout_seconds
+        );
+      end if;
+
       update public.accounts
-        set session_token = gen_random_uuid()::text, updated_at = now()
+        set failed_attempts = v_new_attempts, locked_until = null, updated_at = now()
+        where id = v_row.id;
+      return jsonb_build_object('error', 'pin_incorrecto');
+    end if;
+
+    if v_row.failed_attempts > 0 or v_row.locked_until is not null
+       or v_row.session_token is null or v_row.session_token = '' then
+      update public.accounts
+        set failed_attempts = 0,
+            locked_until = null,
+            session_token = coalesce(nullif(v_row.session_token, ''), gen_random_uuid()::text),
+            updated_at = now()
         where id = v_row.id
         returning * into v_row;
     end if;

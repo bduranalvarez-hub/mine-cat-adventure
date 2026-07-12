@@ -67,8 +67,10 @@ const Account = (() => {
   }
 
   // Inicia sesión o crea la cuenta si el nombre no existe. Devuelve
-  // { ok: true } o { ok: false, code } con el motivo (pin_invalido,
-  // pin_incorrecto, nombre_invalido, sin_conexion).
+  // { ok: true } o { ok: false, code, retryAfter? } con el motivo
+  // (pin_invalido, pin_incorrecto, nombre_invalido, cuenta_bloqueada,
+  // sin_conexion). cuenta_bloqueada viene tras 5 PIN incorrectos
+  // seguidos y trae retryAfter con los segundos de espera.
   async function login(name, pin) {
     if (!remoteEnabled()) return { ok: false, code: 'sin_conexion' };
     try {
@@ -82,7 +84,8 @@ const Account = (() => {
       return { ok: true };
     } catch (err) {
       const code = err && err.code ? err.code : 'sin_conexion';
-      return { ok: false, code };
+      const retryAfter = err && err.retryAfter;
+      return { ok: false, code, retryAfter };
     }
   }
 

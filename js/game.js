@@ -299,12 +299,17 @@ const Game = (() => {
     const result = await Account.login(name, pin);
     dom['btn-login'].disabled = false;
     if (!result.ok) {
-      const key = {
-        pin_incorrecto: 'errPinIncorrecto',
-        pin_invalido: 'errPinInvalido',
-        nombre_invalido: 'errNombreInvalido',
-      }[result.code] || 'errSinConexion';
-      dom['login-error'].textContent = I18n.t(key);
+      if (result.code === 'cuenta_bloqueada') {
+        const mins = Math.max(1, Math.ceil((result.retryAfter || 60) / 60));
+        dom['login-error'].textContent = I18n.t('errCuentaBloqueada', { m: mins });
+      } else {
+        const key = {
+          pin_incorrecto: 'errPinIncorrecto',
+          pin_invalido: 'errPinInvalido',
+          nombre_invalido: 'errNombreInvalido',
+        }[result.code] || 'errSinConexion';
+        dom['login-error'].textContent = I18n.t(key);
+      }
       dom['login-error'].classList.remove('hidden');
       return;
     }

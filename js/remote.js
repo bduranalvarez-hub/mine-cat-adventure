@@ -93,10 +93,12 @@ const Remote = (() => {
     }));
   }
 
-  // Inicia sesión o crea la cuenta (nombre único, PIN mínimo 4 dígitos).
-  // Devuelve { name, token, coins, skinsOwned, activeSkin } o null si
-  // el backend no está configurado o falla la red. El PIN incorrecto o
-  // inválido llega como excepción con el código del servidor.
+  // Inicia sesión o crea la cuenta (nombre único, PIN de 4 a 8 dígitos).
+  // Devuelve { name, token, coins, skinsOwned, activeSkin } si todo
+  // sale bien. Los fallos esperados (PIN incorrecto, cuenta bloqueada
+  // por intentos fallidos, nombre/PIN inválido) llegan del servidor
+  // como { error, retryAfter? } en vez de un código HTTP de error,
+  // así que se relanzan como excepción con esos mismos datos.
   async function authAccount(name, pin) {
     if (!enabled()) return null;
     const res = await withTimeout((signal) =>
@@ -108,13 +110,18 @@ const Remote = (() => {
       })
     );
     if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      const code = body && body.message ? String(body.message) : 'error';
-      const err = new Error(code);
-      err.code = code;
+      const err = new Error('http_error');
+      err.code = 'sin_conexion';
       throw err;
     }
-    return res.json();
+    const body = await res.json();
+    if (body && body.error) {
+      const err = new Error(body.error);
+      err.code = body.error;
+      err.retryAfter = body.retryAfter;
+      throw err;
+    }
+    return body;
   }
 
   // Sube el progreso local y adopta el resultado ya fusionado por el
