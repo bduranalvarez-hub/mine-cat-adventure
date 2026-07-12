@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // Skins del personaje principal + imagen del enemigo. Cada personaje es
 // un PNG recortado (solo el gato, sin carro) que se estampa sobre la
@@ -28,10 +28,10 @@ const Skins = (() => {
   // agarradas al borde); sin front va detrás y el carro le tapa el cuerpo.
   const LIST = [
     { id: 'sphynx', nameKey: 'skinSphynx', src: 'img/char-sphynx.png', price: 0, renderW: 118, dx: 6, dy: 0 },
-    { id: 'bebe', nameKey: 'skinBebe', src: 'img/skin-bebe.png', price: 1000, renderW: 112, dx: 0, dy: 0, front: true },
-    { id: 'esqueleto', nameKey: 'skinEsqueleto', src: 'img/skin-esqueleto.png', price: 1000, renderW: 112, dx: 0, dy: 0, front: true },
-    { id: 'robot', nameKey: 'skinRobot', src: 'img/skin-robot.png', price: 1000, renderW: 126, dx: 0, dy: 0, front: true },
-    { id: 'gatoreal', nameKey: 'skinGatoreal', src: 'img/skin-gatoreal.png', price: 1000, renderW: 118, dx: 6, dy: 0 },
+    { id: 'bebe', nameKey: 'skinBebe', src: 'img/skin-bebe.png', price: 1, renderW: 112, dx: 0, dy: 0, front: true },
+    { id: 'esqueleto', nameKey: 'skinEsqueleto', src: 'img/skin-esqueleto.png', price: 1, renderW: 112, dx: 0, dy: 0, front: true },
+    { id: 'robot', nameKey: 'skinRobot', src: 'img/skin-robot.png', price: 1, renderW: 126, dx: 0, dy: 0, front: true },
+    { id: 'gatoreal', nameKey: 'skinGatoreal', src: 'img/skin-gatoreal.png', price: 1, renderW: 118, dx: 6, dy: 0 },
   ];
   LIST.forEach((s) => { s.rec = load(s.src); });
 
