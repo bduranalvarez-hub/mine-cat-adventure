@@ -428,7 +428,7 @@ const Game = (() => {
       state.isRecord = true;
       saveBest(Modes.get().storageKey, finalMeters);
     }
-    state.coinResult = Coins.earnFromRun(finalMeters);
+    state.coinResult = Coins.earnFromRun(finalMeters, Modes.get().coinMultiplier);
     Leaderboard.submit(Leaderboard.getPlayer(), finalMeters, Modes.get().key);
 
     if (cause === 'crash') {

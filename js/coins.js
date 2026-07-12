@@ -70,10 +70,13 @@ const Coins = (() => {
   }
 
   // Convierte los metros de una partida en monedas, respetando el tope
-  // diario. Devuelve cuántas se acreditaron y si el tope recortó algo.
-  function earnFromRun(meters) {
+  // diario. multiplier depende del modo (Modes.get().coinMultiplier):
+  // fácil paga x1, difícil x2, hardcore x3 por los mismos metros.
+  // Devuelve cuántas se acreditaron y si el tope recortó algo.
+  function earnFromRun(meters, multiplier) {
     rollDay();
-    const raw = Math.floor(Math.max(0, meters) / CONFIG.COINS.METERS_PER_COIN);
+    const mult = Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+    const raw = Math.floor(Math.max(0, meters) / CONFIG.COINS.METERS_PER_COIN) * mult;
     const room = Math.max(0, CONFIG.COINS.DAILY_CAP - daily.earned);
     const earned = Math.min(raw, room);
     if (earned > 0) {

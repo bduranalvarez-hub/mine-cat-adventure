@@ -21,6 +21,9 @@ const Modes = (() => {
     wreckRailMargin: 450,
     warnDistance: 800, // aviso "!" de carro que viene
     musicTempo: 112,
+    // Multiplicador de monedas: cuanto mas dificil el modo, mas paga
+    // por la misma distancia (ver CONFIG.COINS y js/coins.js).
+    coinMultiplier: 1,
     oncoming: Object.freeze({
       firstDelay: 10,
       intervalStart: 8,
@@ -50,6 +53,7 @@ const Modes = (() => {
     wreckRailMargin: 520,
     warnDistance: 1050,
     musicTempo: 128,
+    coinMultiplier: 2,
     oncoming: Object.freeze({
       firstDelay: 5.5,
       intervalStart: 5.5,
@@ -83,6 +87,7 @@ const Modes = (() => {
     wreckRailMargin: 240,
     warnDistance: 1500,
     musicTempo: 150,
+    coinMultiplier: 3,
     oncoming: Object.freeze({
       firstDelay: 4,
       intervalStart: 2.75, // el doble de carros que DIFICIL
