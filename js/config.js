@@ -19,6 +19,13 @@ const CONFIG = Object.freeze({
     PLATINUM: 1500,
   }),
 
+  // Economía: monedas por distancia recorrida, con tope diario para
+  // que farmear no rompa la tienda. Las usa js/coins.js.
+  COINS: Object.freeze({
+    METERS_PER_COIN: 100,
+    DAILY_CAP: 100,
+  }),
+
   GRAVITY: 2500,
   JUMP_VELOCITY: -940,
   // Al soltar el toque mientras sube, la velocidad se recorta a este

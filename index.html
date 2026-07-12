@@ -49,6 +49,10 @@
         <span id="best-hardcore" class="btn-best"></span>
       </button>
       <button id="btn-ranking" class="mode-btn small" data-i18n="ranking">🏆 RANKING</button>
+      <button id="btn-shop" class="mode-btn small">
+        <span data-i18n="shop">🛒 TIENDA</span>
+        <span id="menu-coins" class="btn-best"></span>
+      </button>
     </div>
     <button id="btn-music" class="link-btn music-toggle">🔊 Música: sí</button>
     <button id="btn-lang" class="link-btn lang-toggle" data-i18n="langBtn">🌐 Idioma: Español</button>
@@ -68,10 +72,19 @@
     <button id="btn-rank-back" class="mode-btn small" data-i18n="back">VOLVER</button>
   </div>
 
+  <div id="shop" class="overlay hidden">
+    <h2 class="rank-title" data-i18n="shopTitle">🛒 TIENDA</h2>
+    <p id="shop-coins" class="coin-pill"></p>
+    <p id="shop-daily" class="shop-daily"></p>
+    <div id="shop-list" class="shop-list"></div>
+    <button id="btn-shop-back" class="mode-btn small" data-i18n="back">VOLVER</button>
+  </div>
+
   <div id="gameover" class="overlay hidden">
     <h2 id="go-title">¡TE ESTRELLASTE!</h2>
     <p class="result"><span id="go-distance">0</span> m</p>
     <p id="go-record" class="record hidden" data-i18n="newRecord">¡NUEVO RÉCORD!</p>
+    <p id="go-coins" class="go-coins hidden"></p>
     <p id="go-best" class="best"></p>
     <p id="go-retry" class="blink hidden" data-i18n="retry">TOCA PARA REINTENTAR</p>
     <div id="go-buttons" class="go-buttons hidden">
@@ -90,6 +103,7 @@
   <script src="js/leaderboard.js"></script>
   <script src="js/share.js"></script>
   <script src="js/input.js"></script>
+  <script src="js/coins.js"></script>
   <script src="js/skins.js"></script>
   <script src="js/sprites.js"></script>
   <script src="js/background.js"></script>

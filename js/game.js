@@ -74,9 +74,10 @@ const Game = (() => {
     [
       'hud', 'distance', 'menu', 'login', 'ranking', 'rank-list', 'rank-status',
       'gameover', 'go-title', 'go-distance', 'go-record', 'go-best',
-      'go-retry', 'go-menu', 'go-share', 'go-buttons',
+      'go-retry', 'go-menu', 'go-share', 'go-buttons', 'go-coins',
       'best-normal', 'best-hard', 'best-hardcore',
       'player-name', 'nick', 'btn-music',
+      'shop', 'shop-list', 'shop-coins', 'shop-daily', 'menu-coins',
     ].forEach((id) => {
       dom[id] = document.getElementById(id);
     });
@@ -116,6 +117,8 @@ const Game = (() => {
     wireButton('btn-logout', showLogin);
     wireButton('btn-ranking', () => showRanking(Modes.get().key));
     wireButton('btn-rank-back', showMenu);
+    wireButton('btn-shop', showShop);
+    wireButton('btn-shop-back', showMenu);
     wireButton('tab-normal', () => showRanking('normal'));
     wireButton('tab-hard', () => showRanking('hard'));
     wireButton('tab-hardcore', () => showRanking('hardcore'));
@@ -145,12 +148,92 @@ const Game = (() => {
   // Vuelve a pintar los textos dinámicos según el idioma actual.
   function refreshDynamicText() {
     updateMusicButton();
+    updateCoinsUI();
     if (dom.menu && !dom.menu.classList.contains('hidden')) {
       updateMenuBest();
     }
     if (dom.ranking && !dom.ranking.classList.contains('hidden')) {
       showRanking(rankTab);
     }
+    if (dom.shop && !dom.shop.classList.contains('hidden')) {
+      renderShop();
+    }
+  }
+
+  // --- Tienda de skins -----------------------------------------------------
+  function updateCoinsUI() {
+    dom['menu-coins'].textContent = I18n.t('shopCoins', { n: Coins.getBalance() });
+    dom['shop-coins'].textContent = I18n.t('shopCoins', { n: Coins.getBalance() });
+    dom['shop-daily'].textContent = I18n.t('shopDaily', {
+      e: Coins.earnedToday(),
+      cap: Coins.dailyCap(),
+      m: CONFIG.COINS.METERS_PER_COIN,
+    });
+  }
+
+  // Pinta las tarjetas de la tienda. Construcción con DOM + textContent
+  // (nada se interpreta como HTML). Se regenera entera en cada acción:
+  // son 5 tarjetas, no hay costo apreciable.
+  function renderShop() {
+    updateCoinsUI();
+    const listEl = dom['shop-list'];
+    listEl.textContent = '';
+    Skins.LIST.forEach((skin) => {
+      const card = document.createElement('div');
+      card.className = 'skin-card';
+
+      const thumb = document.createElement('img');
+      thumb.className = 'skin-thumb';
+      thumb.src = skin.src;
+      thumb.alt = '';
+      thumb.draggable = false;
+
+      const name = document.createElement('span');
+      name.className = 'skin-name';
+      name.textContent = I18n.t(skin.nameKey);
+
+      const btn = document.createElement('button');
+      btn.className = 'skin-btn';
+      const equipped = Skins.activeId() === skin.id;
+      if (equipped) {
+        btn.textContent = I18n.t('shopEquipped');
+        btn.classList.add('equipped');
+        btn.disabled = true;
+      } else if (Skins.isOwned(skin.id)) {
+        btn.textContent = I18n.t('shopEquip');
+        btn.addEventListener('pointerdown', (event) => {
+          event.stopPropagation();
+          Skins.setActive(skin.id);
+          GameAudio.unlock();
+          renderShop();
+        });
+      } else {
+        btn.textContent = I18n.t('shopBuy', { n: skin.price });
+        const affordable = Coins.getBalance() >= skin.price;
+        btn.classList.add('buy');
+        btn.disabled = !affordable;
+        if (affordable) {
+          btn.addEventListener('pointerdown', (event) => {
+            event.stopPropagation();
+            if (!Coins.spend(skin.price)) return;
+            Skins.grant(skin.id);
+            Skins.setActive(skin.id);
+            GameAudio.unlock();
+            GameAudio.record();
+            renderShop();
+          });
+        }
+      }
+
+      card.append(thumb, name, btn);
+      listEl.appendChild(card);
+    });
+  }
+
+  function showShop() {
+    dom.menu.classList.add('hidden');
+    renderShop();
+    dom.shop.classList.remove('hidden');
   }
 
   // --- Login y ranking ---------------------------------------------------
@@ -158,6 +241,7 @@ const Game = (() => {
     state = createState(MODES.MENU);
     dom.menu.classList.add('hidden');
     dom.ranking.classList.add('hidden');
+    dom.shop.classList.add('hidden');
     dom.gameover.classList.add('hidden');
     dom.hud.classList.add('hidden');
     dom.nick.value = Leaderboard.getPlayer();
@@ -297,10 +381,12 @@ const Game = (() => {
     state = createState(MODES.MENU);
     dom.gameover.classList.add('hidden');
     dom.ranking.classList.add('hidden');
+    dom.shop.classList.add('hidden');
     dom.login.classList.add('hidden');
     dom.hud.classList.add('hidden');
     dom['player-name'].textContent = Leaderboard.getPlayer();
     updateMenuBest();
+    updateCoinsUI();
     Music.setTempo(Modes.NORMAL.musicTempo);
     Music.start(Modes.NORMAL.musicTempo);
     dom.menu.classList.remove('hidden');
@@ -322,6 +408,7 @@ const Game = (() => {
     dom.menu.classList.add('hidden');
     dom.gameover.classList.add('hidden');
     dom['go-record'].classList.add('hidden');
+    dom['go-coins'].classList.add('hidden');
     dom['go-retry'].classList.add('hidden');
     dom['go-buttons'].classList.add('hidden');
     dom.hud.classList.remove('hidden');
@@ -341,6 +428,7 @@ const Game = (() => {
       state.isRecord = true;
       saveBest(Modes.get().storageKey, finalMeters);
     }
+    state.coinResult = Coins.earnFromRun(finalMeters);
     Leaderboard.submit(Leaderboard.getPlayer(), finalMeters, Modes.get().key);
 
     if (cause === 'crash') {
@@ -366,6 +454,14 @@ const Game = (() => {
     if (state.isRecord) {
       dom['go-record'].classList.remove('hidden');
       GameAudio.record();
+    }
+    const coins = state.coinResult || { earned: 0, capped: false };
+    if (coins.earned > 0 || coins.capped) {
+      dom['go-coins'].textContent = I18n.t(
+        coins.capped ? 'goCoinsCapped' : 'goCoins',
+        { n: coins.earned }
+      );
+      dom['go-coins'].classList.remove('hidden');
     }
     dom.gameover.classList.remove('hidden');
   }
