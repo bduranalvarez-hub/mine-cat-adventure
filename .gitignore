@@ -31,3 +31,6 @@ android/local.properties
 ios/App/Pods/
 ios/App/App.xcworkspace/
 
+
+# Fuentes de diseno (fotos y arte original, no usadas por el juego)
+assets/

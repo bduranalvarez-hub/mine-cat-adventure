@@ -17,6 +17,7 @@ const ITEMS = [
   'css',
   'js',
   'icons',
+  'img',
 ];
 
 async function main() {

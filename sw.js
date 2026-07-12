@@ -3,7 +3,7 @@
 // Service worker: estrategia red-primero con respaldo en caché.
 // Online siempre sirve la última versión; offline sirve la copia
 // guardada. Sube CACHE_VERSION al publicar cambios importantes.
-const CACHE_VERSION = 'mca-v12';
+const CACHE_VERSION = 'mca-v13';
 
 const ASSETS = [
   './',
@@ -21,6 +21,7 @@ const ASSETS = [
   './js/leaderboard.js',
   './js/share.js',
   './js/input.js',
+  './js/skins.js',
   './js/sprites.js',
   './js/background.js',
   './js/track.js',
@@ -30,6 +31,12 @@ const ASSETS = [
   './js/main.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './img/char-sphynx.png',
+  './img/char-enemy.png',
+  './img/skin-bebe.png',
+  './img/skin-esqueleto.png',
+  './img/skin-robot.png',
+  './img/skin-gatoreal.png',
 ];
 
 self.addEventListener('install', (event) => {
