@@ -104,5 +104,15 @@ const Coins = (() => {
     return true;
   }
 
-  return { getBalance, earnedToday, dailyCap, earnFromRun, add, spend };
+  // Adopta un saldo fusionado con el servidor (ver Account.sync). Solo
+  // sube el saldo local, nunca lo baja: jugar offline no debe perder
+  // monedas ya ganadas en este dispositivo.
+  function setBalance(amount) {
+    const value = Math.floor(amount);
+    if (!Number.isFinite(value) || value <= balance) return;
+    balance = value;
+    persist();
+  }
+
+  return { getBalance, earnedToday, dailyCap, earnFromRun, add, spend, setBalance };
 })();

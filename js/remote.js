@@ -93,5 +93,52 @@ const Remote = (() => {
     }));
   }
 
-  return { enabled, submit, top };
+  // Inicia sesión o crea la cuenta (nombre único, PIN mínimo 4 dígitos).
+  // Devuelve { name, token, coins, skinsOwned, activeSkin } o null si
+  // el backend no está configurado o falla la red. El PIN incorrecto o
+  // inválido llega como excepción con el código del servidor.
+  async function authAccount(name, pin) {
+    if (!enabled()) return null;
+    const res = await withTimeout((signal) =>
+      fetch(`${RemoteConfig.url}/rest/v1/rpc/auth_account`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ p_name: name, p_pin: pin }),
+        signal,
+      })
+    );
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const code = body && body.message ? String(body.message) : 'error';
+      const err = new Error(code);
+      err.code = code;
+      throw err;
+    }
+    return res.json();
+  }
+
+  // Sube el progreso local y adopta el resultado ya fusionado por el
+  // servidor (nunca pierde monedas ni skins entre dispositivos).
+  async function syncAccount(name, token, coins, skinsOwned, activeSkin) {
+    if (!enabled()) return null;
+    try {
+      const res = await withTimeout((signal) =>
+        fetch(`${RemoteConfig.url}/rest/v1/rpc/sync_account`, {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({
+            p_name: name, p_token: token, p_coins: coins,
+            p_skins_owned: skinsOwned, p_active_skin: activeSkin,
+          }),
+          signal,
+        })
+      );
+      if (!res.ok) return null;
+      return res.json();
+    } catch (err) {
+      return null; // sin conexión: el progreso local sigue valiendo
+    }
+  }
+
+  return { enabled, submit, top, authAccount, syncAccount };
 })();

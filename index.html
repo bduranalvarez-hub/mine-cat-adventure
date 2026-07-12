@@ -19,14 +19,18 @@
     <span id="distance">0 m</span>
   </div>
 
-  <div id="login" class="overlay hidden">
-    <h1>MINE CAT<br>ADVENTURE</h1>
-    <p class="subtitle" data-i18n="subtitle">Un sphynx, una vagoneta, una mina infinita</p>
-    <label class="login-label" for="nick" data-i18n="loginLabel">¿Cómo te llamas, minero?</label>
-    <input id="nick" type="text" maxlength="12" autocomplete="off"
-           spellcheck="false" data-i18n-ph="nickPlaceholder" placeholder="Tu nombre" />
-    <button id="btn-login" class="mode-btn" data-i18n="btnLogin">ENTRAR A LA MINA</button>
-    <button id="btn-lang-login" class="link-btn lang-toggle" data-i18n="langBtn">🌐 Idioma: Español</button>
+  <div id="login" class="overlay login-bg hidden">
+    <div class="login-panel">
+      <label class="login-label" for="nick" data-i18n="loginLabel">¿Cómo te llamas, minero?</label>
+      <input id="nick" type="text" maxlength="14" autocomplete="off"
+             spellcheck="false" data-i18n-ph="nickPlaceholder" placeholder="Tu nombre" />
+      <input id="pin" type="tel" inputmode="numeric" maxlength="8" autocomplete="off"
+             data-i18n-ph="pinPlaceholder" placeholder="Clave (mín. 4 dígitos)" />
+      <p id="login-error" class="login-error hidden"></p>
+      <button id="btn-login" class="mode-btn" data-i18n="btnLogin">ENTRAR A LA MINA</button>
+      <button id="btn-guest" class="link-btn" data-i18n="btnGuest">🎮 Jugar como invitado</button>
+      <button id="btn-lang-login" class="link-btn lang-toggle" data-i18n="langBtn">🌐 Idioma: Español</button>
+    </div>
   </div>
 
   <div id="menu" class="overlay hidden">
@@ -34,6 +38,10 @@
     <p class="player-row">
       <span data-i18n="playerPrefix">Minero:</span> <strong id="player-name"></strong>
       <button id="btn-logout" class="link-btn" data-i18n="change">cambiar</button>
+    </p>
+    <p id="guest-notice" class="guest-notice hidden">
+      <span data-i18n="guestNotice">🎮 Invitado: tu progreso puede perderse.</span>
+      <button id="btn-link-account" class="link-btn" data-i18n="btnLinkAccount">🔗 Vincular cuenta</button>
     </p>
     <div class="mode-buttons">
       <button id="btn-normal" class="mode-btn">
@@ -105,6 +113,7 @@
   <script src="js/input.js"></script>
   <script src="js/coins.js"></script>
   <script src="js/skins.js"></script>
+  <script src="js/account.js"></script>
   <script src="js/sprites.js"></script>
   <script src="js/background.js"></script>
   <script src="js/track.js"></script>

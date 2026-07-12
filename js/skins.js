@@ -81,6 +81,7 @@ const Skins = (() => {
       }
     },
     isOwned(id) { return owned.includes(id); },
+    ownedList() { return owned.slice(); },
     grant(id) {
       if (owned.includes(id) || !LIST.some((s) => s.id === id)) return;
       owned.push(id);

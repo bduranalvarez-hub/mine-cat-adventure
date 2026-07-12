@@ -76,7 +76,8 @@ const Game = (() => {
       'gameover', 'go-title', 'go-distance', 'go-record', 'go-best',
       'go-retry', 'go-menu', 'go-share', 'go-buttons', 'go-coins',
       'best-normal', 'best-hard', 'best-hardcore',
-      'player-name', 'nick', 'btn-music',
+      'player-name', 'nick', 'pin', 'login-error', 'btn-login', 'guest-notice',
+      'btn-music',
       'shop', 'shop-list', 'shop-coins', 'shop-daily', 'menu-coins',
     ].forEach((id) => {
       dom[id] = document.getElementById(id);
@@ -114,7 +115,9 @@ const Game = (() => {
     wireButton('go-menu', showMenu);
     wireButton('go-share', shareScore);
     wireButton('btn-login', doLogin);
+    wireButton('btn-guest', doGuest);
     wireButton('btn-logout', showLogin);
+    wireButton('btn-link-account', showLogin);
     wireButton('btn-ranking', () => showRanking(Modes.get().key));
     wireButton('btn-rank-back', showMenu);
     wireButton('btn-shop', showShop);
@@ -126,6 +129,10 @@ const Game = (() => {
     wireButton('btn-lang', () => I18n.toggle());
     wireButton('btn-lang-login', () => I18n.toggle());
     dom.nick.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      if (event.key === 'Enter') dom.pin.focus();
+    });
+    dom.pin.addEventListener('keydown', (event) => {
       event.stopPropagation();
       if (event.key === 'Enter') doLogin();
     });
@@ -205,6 +212,7 @@ const Game = (() => {
           event.stopPropagation();
           Skins.setActive(skin.id);
           GameAudio.unlock();
+          Account.push();
           renderShop();
         });
       } else {
@@ -220,6 +228,7 @@ const Game = (() => {
             Skins.setActive(skin.id);
             GameAudio.unlock();
             GameAudio.record();
+            Account.push();
             renderShop();
           });
         }
@@ -245,25 +254,74 @@ const Game = (() => {
     dom.gameover.classList.add('hidden');
     dom.hud.classList.add('hidden');
     dom.nick.value = Leaderboard.getPlayer();
+    dom.pin.value = '';
+    dom['login-error'].classList.add('hidden');
     dom.login.classList.remove('hidden');
   }
 
-  function doLogin() {
-    const name = dom.nick.value.trim().slice(0, 12);
+  // Valida y normaliza el nombre del campo; si es inválido, enfoca el
+  // campo y avisa. Devuelve null cuando no se debe continuar.
+  function readNickOrWarn() {
+    const name = dom.nick.value.trim().slice(0, 14);
     if (!name) {
       dom.nick.focus();
-      return;
+      return null;
     }
     if (!Moderation.isAllowed(name)) {
       dom.nick.value = '';
       dom.nick.placeholder = I18n.t('nameNotAllowed');
       dom.nick.focus();
-      return;
+      return null;
     }
-    Leaderboard.setPlayer(name);
+    return name;
+  }
+
+  function enterMenu() {
+    dom.pin.value = '';
     dom.login.classList.add('hidden');
     Music.start(Modes.NORMAL.musicTempo);
     showMenu();
+  }
+
+  // Inicia sesión o crea la cuenta (nombre + PIN). El nombre es único:
+  // si ya existe, el PIN debe coincidir. El progreso local (monedas,
+  // skins) se fusiona con el de la cuenta, nunca se pierde.
+  async function doLogin() {
+    const name = readNickOrWarn();
+    if (!name) return;
+    const pin = dom.pin.value.trim();
+    if (!pin) {
+      dom.pin.focus();
+      return;
+    }
+    dom['login-error'].classList.add('hidden');
+    dom['btn-login'].disabled = true;
+    const result = await Account.login(name, pin);
+    dom['btn-login'].disabled = false;
+    if (!result.ok) {
+      const key = {
+        pin_incorrecto: 'errPinIncorrecto',
+        pin_invalido: 'errPinInvalido',
+        nombre_invalido: 'errNombreInvalido',
+      }[result.code] || 'errSinConexion';
+      dom['login-error'].textContent = I18n.t(key);
+      dom['login-error'].classList.remove('hidden');
+      return;
+    }
+    Leaderboard.setPlayer(name);
+    enterMenu();
+  }
+
+  // Juega sin cuenta: el progreso queda solo en este dispositivo. Pide
+  // confirmación porque borrar los datos de la app o cambiar de
+  // teléfono lo pierde.
+  function doGuest() {
+    const name = readNickOrWarn();
+    if (!name) return;
+    if (!window.confirm(I18n.t('guestWarning'))) return;
+    Account.unlink();
+    Leaderboard.setPlayer(name);
+    enterMenu();
   }
 
   // Token para descartar respuestas remotas obsoletas si el jugador
@@ -385,6 +443,7 @@ const Game = (() => {
     dom.login.classList.add('hidden');
     dom.hud.classList.add('hidden');
     dom['player-name'].textContent = Leaderboard.getPlayer();
+    dom['guest-notice'].classList.toggle('hidden', Account.isLinked());
     updateMenuBest();
     updateCoinsUI();
     Music.setTempo(Modes.NORMAL.musicTempo);
@@ -430,6 +489,7 @@ const Game = (() => {
     }
     state.coinResult = Coins.earnFromRun(finalMeters, Modes.get().coinMultiplier);
     Leaderboard.submit(Leaderboard.getPlayer(), finalMeters, Modes.get().key);
+    if (state.coinResult.earned > 0) Account.push();
 
     if (cause === 'crash') {
       state.player.onRail = false;
