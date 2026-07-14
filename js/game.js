@@ -77,7 +77,7 @@ const Game = (() => {
       'go-retry', 'go-menu', 'go-share', 'go-buttons', 'go-coins',
       'best-normal', 'best-hard', 'best-hardcore',
       'player-name', 'nick', 'pin', 'login-error', 'btn-login', 'guest-notice',
-      'btn-music',
+      'btn-music', 'menu-coin-balance', 'btn-add-coins',
       'shop', 'shop-list', 'shop-coins', 'shop-daily', 'menu-coins',
     ].forEach((id) => {
       dom[id] = document.getElementById(id);
@@ -127,6 +127,8 @@ const Game = (() => {
     wireButton('tab-hardcore', () => showRanking('hardcore'));
     wireButton('btn-music', toggleMusic);
     wireButton('btn-lang', () => I18n.toggle());
+    // La recompensa por anuncio aún no está implementada: solo avisa.
+    wireButton('btn-add-coins', () => window.alert(I18n.t('comingSoon')));
     wireButton('btn-lang-login', () => I18n.toggle());
     dom.nick.addEventListener('keydown', (event) => {
       event.stopPropagation();
@@ -169,7 +171,8 @@ const Game = (() => {
 
   // --- Tienda de skins -----------------------------------------------------
   function updateCoinsUI() {
-    dom['menu-coins'].textContent = I18n.t('shopCoins', { n: Coins.getBalance() });
+    dom['menu-coin-balance'].textContent = String(Coins.getBalance());
+    dom['menu-coins'].textContent = I18n.t('shopCoinsPlain', { n: Coins.getBalance() });
     dom['shop-coins'].textContent = I18n.t('shopCoins', { n: Coins.getBalance() });
     dom['shop-daily'].textContent = I18n.t('shopDaily', {
       e: Coins.earnedToday(),
@@ -401,7 +404,7 @@ const Game = (() => {
   }
 
   function updateMusicButton() {
-    dom['btn-music'].textContent = Music.isEnabled() ? I18n.t('musicOn') : I18n.t('musicOff');
+    dom['btn-music'].textContent = Music.isEnabled() ? '🔊' : '🔇';
   }
 
   function resize() {

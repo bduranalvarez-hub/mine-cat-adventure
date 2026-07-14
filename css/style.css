@@ -75,6 +75,78 @@ body {
   letter-spacing: 2px;
 }
 
+.menu-title {
+  margin-top: 34px;
+}
+
+.menu-topbar {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top));
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.coin-badge {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 7px 14px;
+  border-radius: 999px;
+  border: 2px solid #7a4a12;
+  background: rgba(20, 10, 4, 0.75);
+  color: #ffd76a;
+  font-size: 16px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.coin-badge-icon {
+  font-size: 17px;
+}
+
+.coin-badge-plus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 215, 106, 0.18);
+  border: 1px solid rgba(255, 215, 106, 0.5);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.menu-topbar-icons {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  pointer-events: auto;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 2px solid #7a4a12;
+  background: rgba(20, 10, 4, 0.75);
+  color: #ffe9c4;
+  font-size: 19px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.icon-btn:active {
+  transform: translateY(2px);
+}
+
 .overlay h2 {
   font-size: clamp(30px, 9vw, 52px);
   color: #ff6b5e;
@@ -160,6 +232,12 @@ body {
   box-shadow: 0 1px 0 #4c3826, 0 4px 8px rgba(0, 0, 0, 0.6);
 }
 
+.mode-btn.easy {
+  border-color: #2f6b1f;
+  background: linear-gradient(#4a8f2e, #2c5c1a);
+  color: #eaffdf;
+}
+
 .mode-btn.hard {
   border-color: #8f1d10;
   background: linear-gradient(#a83224, #741a10);
@@ -173,10 +251,89 @@ body {
   text-shadow: 0 0 8px rgba(220, 90, 255, 0.6);
 }
 
+/* Los tres botones de dificultad llevan icono a la izquierda y
+   título+récord apilados al centro (icon-row); los demás usos de
+   .mode-btn (volver, compartir…) conservan el layout simple en
+   columna de arriba. */
+.mode-btn.easy,
+.mode-btn.hard,
+.mode-btn.hardcore {
+  flex-direction: row;
+  gap: 14px;
+}
+
+.mode-btn-icon {
+  font-size: 30px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.mode-btn-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: 3px;
+}
+
 .mode-btn.small {
   font-size: 15px;
   padding: 10px 18px;
   width: auto;
+}
+
+.list-btn {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 18px;
+  border: 3px solid #7a4a12;
+  border-radius: 14px;
+  background: linear-gradient(#6b543a, #4c3826);
+  color: #ffe9c4;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #392a1c, 0 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+.list-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #392a1c, 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.list-btn-icon {
+  font-size: 24px;
+  flex: 0 0 auto;
+}
+
+.list-btn-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  gap: 2px;
+}
+
+.list-btn-label {
+  flex: 1;
+  text-align: left;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.list-btn-sub {
+  font-size: 13px;
+  color: #ffd76a;
+  font-weight: 700;
+}
+
+.list-btn-chevron {
+  font-size: 22px;
+  opacity: 0.7;
+  flex: 0 0 auto;
 }
 
 .go-buttons {
@@ -290,8 +447,14 @@ body {
   font-family: inherit;
 }
 
-.music-toggle {
-  font-size: 15px;
+.menu-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(84vw, 340px);
+  padding-top: 14px;
+  border-top: 1px solid rgba(122, 74, 18, 0.4);
 }
 
 .rank-title {

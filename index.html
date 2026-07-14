@@ -34,7 +34,18 @@
   </div>
 
   <div id="menu" class="overlay hidden">
-    <h1>MINE CAT<br>ADVENTURE</h1>
+    <div class="menu-topbar">
+      <button id="btn-add-coins" class="coin-badge" type="button">
+        <span class="coin-badge-icon">🪙</span>
+        <span id="menu-coin-balance">0</span>
+        <span class="coin-badge-plus">+</span>
+      </button>
+      <div class="menu-topbar-icons">
+        <button id="btn-music" class="icon-btn" type="button"></button>
+        <button id="btn-lang" class="icon-btn" type="button">🌐</button>
+      </div>
+    </div>
+    <h1 class="menu-title">MINE CAT<br>ADVENTURE</h1>
     <p class="player-row">
       <span data-i18n="playerPrefix">Minero:</span> <strong id="player-name"></strong>
       <button id="btn-logout" class="link-btn" data-i18n="change">cambiar</button>
@@ -44,28 +55,45 @@
       <button id="btn-link-account" class="link-btn" data-i18n="btnLinkAccount">🔗 Vincular cuenta</button>
     </p>
     <div class="mode-buttons">
-      <button id="btn-normal" class="mode-btn">
-        <span data-i18n="modeEasy">FÁCIL</span>
-        <span id="best-normal" class="btn-best"></span>
+      <button id="btn-normal" class="mode-btn easy">
+        <span class="mode-btn-icon">🏮</span>
+        <span class="mode-btn-text">
+          <span class="mode-btn-title" data-i18n="modeEasyClean">FÁCIL</span>
+          <span id="best-normal" class="btn-best"></span>
+        </span>
       </button>
       <button id="btn-hard" class="mode-btn hard">
-        <span data-i18n="modeHard">🔥 DIFÍCIL</span>
-        <span id="best-hard" class="btn-best"></span>
+        <span class="mode-btn-icon">🔥</span>
+        <span class="mode-btn-text">
+          <span class="mode-btn-title" data-i18n="modeHardClean">DIFÍCIL</span>
+          <span id="best-hard" class="btn-best"></span>
+        </span>
       </button>
       <button id="btn-hardcore" class="mode-btn hardcore">
-        <span data-i18n="modeHardcore">☠️ HARDCORE</span>
-        <span id="best-hardcore" class="btn-best"></span>
+        <span class="mode-btn-icon">☠️</span>
+        <span class="mode-btn-text">
+          <span class="mode-btn-title" data-i18n="modeHardcoreClean">HARDCORE</span>
+          <span id="best-hardcore" class="btn-best"></span>
+        </span>
       </button>
-      <button id="btn-ranking" class="mode-btn small" data-i18n="ranking">🏆 RANKING</button>
-      <button id="btn-shop" class="mode-btn small">
-        <span data-i18n="shop">🛒 TIENDA</span>
-        <span id="menu-coins" class="btn-best"></span>
+      <button id="btn-ranking" class="list-btn">
+        <span class="list-btn-icon">🏆</span>
+        <span class="list-btn-label" data-i18n="ranking">RANKING</span>
+        <span class="list-btn-chevron">›</span>
+      </button>
+      <button id="btn-shop" class="list-btn">
+        <span class="list-btn-icon">🛒</span>
+        <span class="list-btn-text">
+          <span class="list-btn-label" data-i18n="shop">TIENDA</span>
+          <span id="menu-coins" class="list-btn-sub"></span>
+        </span>
+        <span class="list-btn-chevron">›</span>
       </button>
     </div>
-    <button id="btn-music" class="link-btn music-toggle">🔊 Música: sí</button>
-    <button id="btn-lang" class="link-btn lang-toggle" data-i18n="langBtn">🌐 Idioma: Español</button>
-    <p class="help" data-i18n-html="help">Toca para saltar: tap corto, salto corto;<br>mantén presionado para el salto máximo.</p>
-    <a class="link-btn privacy-link" href="privacy.html" data-i18n="privacy">Política de privacidad</a>
+    <div class="menu-footer">
+      <p class="help" data-i18n-html="help">Toca para saltar: tap corto, salto corto;<br>mantén presionado para el salto máximo.</p>
+      <a class="link-btn privacy-link" href="privacy.html" data-i18n="privacy">Política de privacidad</a>
+    </div>
   </div>
 
   <div id="ranking" class="overlay hidden">
