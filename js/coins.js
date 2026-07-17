@@ -114,5 +114,18 @@ const Coins = (() => {
     persist();
   }
 
-  return { getBalance, earnedToday, dailyCap, earnFromRun, add, spend, setBalance };
+  // Reemplaza el saldo tal cual (puede bajar). Solo para el cambio de
+  // cuenta en el mismo dispositivo: el progreso local pertenecía a
+  // otro usuario y se descarta a favor del de la cuenta que entra.
+  function replaceBalance(amount) {
+    const value = Math.floor(amount);
+    if (!Number.isFinite(value) || value < 0) return;
+    balance = value;
+    persist();
+  }
+
+  return {
+    getBalance, earnedToday, dailyCap, earnFromRun, add, spend,
+    setBalance, replaceBalance,
+  };
 })();

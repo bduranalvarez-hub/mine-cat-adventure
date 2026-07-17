@@ -65,27 +65,42 @@ const Skins = (() => {
     }
   }
 
+  function setActive(id) {
+    if (!LIST.some((s) => s.id === id)) return;
+    active = id;
+    try {
+      localStorage.setItem(KEY_ACTIVE, id);
+    } catch (err) {
+      // Sin persistencia: la elección vale solo para esta sesión.
+    }
+  }
+
   return {
     LIST,
     ENEMY,
     DEFAULT_ID,
     getActive() { return byId(active); },
     activeId() { return active; },
-    setActive(id) {
-      if (!LIST.some((s) => s.id === id)) return;
-      active = id;
-      try {
-        localStorage.setItem(KEY_ACTIVE, id);
-      } catch (err) {
-        // Sin persistencia: la elección vale solo para esta sesión.
-      }
-    },
+    setActive,
     isOwned(id) { return owned.includes(id); },
     ownedList() { return owned.slice(); },
     grant(id) {
       if (owned.includes(id) || !LIST.some((s) => s.id === id)) return;
       owned.push(id);
       persistOwned();
+    },
+    // Reemplaza las skins poseídas y la activa (puede quitar). Solo
+    // para el cambio de cuenta en el mismo dispositivo: el progreso
+    // local pertenecía a otro usuario y se descarta a favor del de la
+    // cuenta que entra.
+    replaceOwned(ids, activeId) {
+      const valid = (Array.isArray(ids) ? ids : [])
+        .filter((id) => LIST.some((s) => s.id === id));
+      owned.length = 0;
+      owned.push(...valid);
+      if (!owned.includes(DEFAULT_ID)) owned.push(DEFAULT_ID);
+      persistOwned();
+      setActive(owned.includes(activeId) ? activeId : DEFAULT_ID);
     },
   };
 })();
