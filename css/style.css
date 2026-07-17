@@ -355,6 +355,23 @@ body {
   padding-bottom: max(28px, env(safe-area-inset-bottom));
 }
 
+/* Pantallas anchas (escritorio / tablet horizontal): la ilustración es
+   vertical (3:4), así que "cover" la recortaba hasta dejar solo un
+   trozo del letrero gigante. Se muestra completa (contain) sobre el
+   mismo café de fondo y el panel pasa a la banda lateral derecha para
+   no tapar el arte. */
+@media (min-aspect-ratio: 5/4) {
+  .login-bg {
+    background-size: contain;
+    background-position: center;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 24px;
+    padding-right: max(4vw, env(safe-area-inset-right));
+  }
+}
+
 .login-panel {
   pointer-events: auto;
   display: flex;

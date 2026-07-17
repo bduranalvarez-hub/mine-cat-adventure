@@ -413,22 +413,19 @@ const Game = (() => {
     canvas.height = Math.floor(canvas.clientHeight * dpr);
 
     // La cámara es igual para los tres modos (no depende de la
-    // dificultad). Por defecto se fija la ALTURA de mundo visible
-    // (buen encuadre en pantallas anchas: horizontal, tablet). Pero
-    // eso deja el ANCHO visible a merced de la proporción física: en
-    // pantallas angostas (móvil vertical) resultaba en muy poco tiempo
-    // de reacción. Si el ancho resultante no alcanza un mínimo, se
-    // fija el ANCHO en su lugar y se deja crecer la altura (se ve más
-    // pared de la mina arriba/abajo, sin ninguna desventaja de
-    // jugabilidad).
-    const baseViewH = CONFIG.VIRTUAL_HEIGHT;
-    const minViewW = CONFIG.MIN_VIEW_WIDTH;
-
-    const heightDrivenScale = canvas.height / baseViewH;
-    const heightDrivenViewW = canvas.width / heightDrivenScale;
-    scale = heightDrivenViewW < minViewW
-      ? canvas.width / minViewW
-      : heightDrivenScale;
+    // dificultad). El zoom se elige para que el mundo visible cumpla
+    // DOS mínimos a la vez, gobernando el eje más restrictivo:
+    // - MIN_VIEW_WIDTH: tiempo de reacción en pantallas angostas
+    //   (móvil vertical), donde manda el ancho.
+    // - MIN_VIEW_HEIGHT: visibilidad vertical en pantallas anchas y
+    //   bajas (escritorio 16:9), donde manda la altura; sin esto el
+    //   riel tras una pendiente caía fuera de pantalla y no se veía
+    //   dónde iba a aterrizar la vagoneta.
+    // El eje no limitante simplemente crece (más mina visible).
+    scale = Math.min(
+      canvas.width / CONFIG.MIN_VIEW_WIDTH,
+      canvas.height / CONFIG.MIN_VIEW_HEIGHT
+    );
 
     viewH = canvas.height / scale;
     viewW = canvas.width / scale;

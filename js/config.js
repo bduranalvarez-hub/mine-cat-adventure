@@ -8,6 +8,11 @@ const CONFIG = Object.freeze({
   // pantallas angostas (móvil vertical), sin importar cuán poco ancho
   // físico tengan. Igual para los tres modos. Ver resize() en game.js.
   MIN_VIEW_WIDTH: 850,
+  // Alto mínimo de mundo visible: en pantallas anchas y bajas
+  // (escritorio 16:9) fijar solo VIRTUAL_HEIGHT dejaba ~275 unidades
+  // bajo el jugador, y tras una pendiente el riel de destino caía
+  // fuera de pantalla: no se veía dónde aterrizar. Ver resize().
+  MIN_VIEW_HEIGHT: 1080,
 
   // Distancia (en metros) para cada medalla. Fuente única: la usan la
   // tarjeta de compartir (share.js) y el mineral del fondo de la mina
