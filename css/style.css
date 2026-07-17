@@ -75,76 +75,87 @@ body {
   letter-spacing: 2px;
 }
 
-.menu-title {
-  margin-top: 34px;
+/* --- Menú principal: ilustración completa + zonas táctiles --------- */
+/* La imagen (2:3 vertical) se ancla por ALTURA y se centra: en móvil
+   angosto desborda un poco por los lados (recorte tipo cover) y en
+   pantallas anchas deja bandas laterales donde se ve la mina animada
+   del fondo. container-type permite dimensionar los textos dinámicos
+   en cqw (proporcionales a la imagen, no a la pantalla). */
+.menu-screen {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
 }
 
-.menu-topbar {
+.menu-art {
   position: absolute;
-  top: calc(14px + env(safe-area-inset-top));
-  left: 14px;
-  right: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 100%;
+  aspect-ratio: 1024 / 1536;
+  background: url('../img/menu-bg.jpg') center / cover no-repeat;
+  container-type: size;
 }
 
-.coin-badge {
+.hot {
+  position: absolute;
   pointer-events: auto;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.hot:active {
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 2cqw;
+}
+
+.menu-dyn {
+  position: absolute;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 10px 7px 14px;
-  border-radius: 999px;
-  border: 2px solid #7a4a12;
-  background: rgba(20, 10, 4, 0.75);
+  justify-content: center;
+  pointer-events: none;
+  color: #f5e9d4;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.menu-dyn.start {
+  justify-content: flex-start;
+}
+
+.menu-dyn.gold {
   color: #ffd76a;
-  font-size: 16px;
-  font-weight: 800;
-  font-family: inherit;
-  cursor: pointer;
 }
 
-.coin-badge-icon {
-  font-size: 17px;
+.menu-dyn.green {
+  color: #9fd86a;
+  text-decoration: underline;
 }
 
-.coin-badge-plus {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(255, 215, 106, 0.18);
-  border: 1px solid rgba(255, 215, 106, 0.5);
-  font-size: 15px;
-  font-weight: 900;
+.menu-dyn.blue {
+  color: #8ec7ff;
+  text-decoration: underline;
 }
 
-.menu-topbar-icons {
-  display: flex;
-  gap: 8px;
+#menu-player u {
+  color: #cbb391;
+  font-size: 0.8em;
 }
 
-.icon-btn {
-  pointer-events: auto;
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  border: 2px solid #7a4a12;
-  background: rgba(20, 10, 4, 0.75);
-  color: #ffe9c4;
-  font-size: 19px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.icon-btn:active {
-  transform: translateY(2px);
+#menu .guest-notice {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 33.6%;
+  z-index: 3;
+  padding: 1.4cqw 2cqw;
+  border-radius: 2cqw;
+  background: rgba(10, 5, 2, 0.78);
 }
 
 .overlay h2 {
@@ -232,108 +243,10 @@ body {
   box-shadow: 0 1px 0 #4c3826, 0 4px 8px rgba(0, 0, 0, 0.6);
 }
 
-.mode-btn.easy {
-  border-color: #2f6b1f;
-  background: linear-gradient(#4a8f2e, #2c5c1a);
-  color: #eaffdf;
-}
-
-.mode-btn.hard {
-  border-color: #8f1d10;
-  background: linear-gradient(#a83224, #741a10);
-  color: #ffd9c9;
-}
-
-.mode-btn.hardcore {
-  border-color: #3d0f4d;
-  background: linear-gradient(#5c1a73, #33093f);
-  color: #f2c9ff;
-  text-shadow: 0 0 8px rgba(220, 90, 255, 0.6);
-}
-
-/* Los tres botones de dificultad llevan icono a la izquierda y
-   título+récord apilados al centro (icon-row); los demás usos de
-   .mode-btn (volver, compartir…) conservan el layout simple en
-   columna de arriba. */
-.mode-btn.easy,
-.mode-btn.hard,
-.mode-btn.hardcore {
-  flex-direction: row;
-  gap: 14px;
-}
-
-.mode-btn-icon {
-  font-size: 30px;
-  line-height: 1;
-  flex: 0 0 auto;
-}
-
-.mode-btn-text {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-  gap: 3px;
-}
-
 .mode-btn.small {
   font-size: 15px;
   padding: 10px 18px;
   width: auto;
-}
-
-.list-btn {
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 13px 18px;
-  border: 3px solid #7a4a12;
-  border-radius: 14px;
-  background: linear-gradient(#6b543a, #4c3826);
-  color: #ffe9c4;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow: 0 4px 0 #392a1c, 0 8px 16px rgba(0, 0, 0, 0.5);
-}
-
-.list-btn:active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 #392a1c, 0 4px 8px rgba(0, 0, 0, 0.5);
-}
-
-.list-btn-icon {
-  font-size: 24px;
-  flex: 0 0 auto;
-}
-
-.list-btn-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  flex: 1;
-  gap: 2px;
-}
-
-.list-btn-label {
-  flex: 1;
-  text-align: left;
-  font-size: 18px;
-  font-weight: 900;
-  letter-spacing: 1px;
-}
-
-.list-btn-sub {
-  font-size: 13px;
-  color: #ffd76a;
-  font-weight: 700;
-}
-
-.list-btn-chevron {
-  font-size: 22px;
-  opacity: 0.7;
-  flex: 0 0 auto;
 }
 
 .go-buttons {
@@ -462,16 +375,6 @@ body {
   text-decoration: underline;
   cursor: pointer;
   font-family: inherit;
-}
-
-.menu-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: min(84vw, 340px);
-  padding-top: 14px;
-  border-top: 1px solid rgba(122, 74, 18, 0.4);
 }
 
 .rank-title {

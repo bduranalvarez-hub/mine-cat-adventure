@@ -9,33 +9,44 @@ const Background = (() => {
   const TIER_FADE_SECONDS = 1.4; // duración del fundido entre minerales
   const GLINT_CELL = 190; // celda de mundo donde puede haber un destello
 
-  // Niveles de mineral, ligados a los mismos umbrales que las medallas
-  // (CONFIG.MEDAL_METERS). Al alcanzarlos, la roca del fondo cambia de
-  // color. Los destellos aparecen desde la plata y son más densos
-  // cuanto más valioso es el mineral.
+  // Niveles de mineral. Los cinco primeros van ligados a los mismos
+  // umbrales que las medallas (CONFIG.MEDAL_METERS); DIAMANTE es un
+  // nivel extra solo visual, sin medalla asociada. Al alcanzarlos, la
+  // roca del fondo cambia. Los destellos aparecen desde la plata y son
+  // más densos cuanto más valioso es el mineral.
+  //
+  // sheetCol indica la columna de img/ores.png (arte del jugador) con
+  // los grupos de roca de ese mineral; ver ORE_SHEET y bakeRockTile.
   const MEDAL = CONFIG.MEDAL_METERS;
+  const DIAMOND_METERS = 3000;
   const ORE_TIERS = [
-    { min: 0, base: '#201007',
-      stone: ['rgba(66,38,20,0.85)', 'rgba(22,11,5,0.85)'],
+    { min: 0, sheetCol: 0, base: '#201007',
       wall: [[16, 7, 2], [34, 17, 7], [21, 10, 4]],
-      hl: '#8a5c34', hlAlpha: 0.30, glintDensity: 0, glint: null },
-    { min: MEDAL.BRONZE, base: '#1f0f06',
-      stone: ['rgba(104,54,20,0.86)', 'rgba(28,12,5,0.88)'],
+      glintDensity: 0, glint: null },
+    { min: MEDAL.BRONZE, sheetCol: 1, base: '#1f0f06',
       wall: [[18, 7, 3], [39, 18, 8], [22, 10, 4]],
-      hl: '#f3c48f', hlAlpha: 0.42, glintDensity: 0, glint: null },
-    { min: MEDAL.SILVER, base: '#121316',
-      stone: ['rgba(80,84,95,0.86)', 'rgba(18,20,24,0.9)'],
+      glintDensity: 0, glint: null },
+    { min: MEDAL.SILVER, sheetCol: 2, base: '#121316',
       wall: [[10, 11, 13], [25, 27, 32], [14, 15, 18]],
-      hl: '#f2f3f8', hlAlpha: 0.50, glintDensity: 0.10, glint: [242, 246, 255] },
-    { min: MEDAL.GOLD, base: '#1e1505',
-      stone: ['rgba(126,93,22,0.87)', 'rgba(32,22,5,0.9)'],
+      glintDensity: 0.10, glint: [242, 246, 255] },
+    { min: MEDAL.GOLD, sheetCol: 3, base: '#1e1505',
       wall: [[16, 10, 2], [36, 26, 6], [19, 13, 3]],
-      hl: '#ffe9a0', hlAlpha: 0.50, glintDensity: 0.17, glint: [255, 233, 160] },
-    { min: MEDAL.PLATINUM, base: '#0f151a',
-      stone: ['rgba(86,107,122,0.86)', 'rgba(15,21,26,0.9)'],
+      glintDensity: 0.17, glint: [255, 233, 160] },
+    { min: MEDAL.PLATINUM, sheetCol: 4, base: '#0f151a',
       wall: [[7, 11, 14], [20, 29, 36], [10, 15, 19]],
-      hl: '#dff2fb', hlAlpha: 0.55, glintDensity: 0.27, glint: [234, 250, 255] },
+      glintDensity: 0.27, glint: [234, 250, 255] },
+    { min: DIAMOND_METERS, sheetCol: 5, base: '#08121d',
+      wall: [[5, 12, 22], [13, 30, 48], [8, 18, 30]],
+      glintDensity: 0.40, glint: [170, 225, 255] },
   ];
+
+  // Hoja de sprites con los grupos de roca dibujados a mano:
+  // 6 columnas (una por mineral) x 4 grupos, en celdas de 200 px.
+  const ORE_SHEET = { cols: 6, rows: 4, cell: 200 };
+  const oreImg = new Image();
+  let oreReady = false;
+  oreImg.onload = () => { oreReady = true; };
+  oreImg.src = 'img/ores.png';
 
   let dust = [];
   const tiles = [];     // textura de roca horneada, por nivel
@@ -62,9 +73,12 @@ const Background = (() => {
     fade = 1;
 
     // Se hornean todas las texturas por adelantado (una sola vez): así
-    // cruzar un umbral a mitad de partida nunca provoca un tirón.
-    for (let i = 0; i < ORE_TIERS.length; i += 1) {
-      if (!tiles[i]) tiles[i] = bakeRockTile(i);
+    // cruzar un umbral a mitad de partida nunca provoca un tirón. Si
+    // el arte aún no cargó, patternFor() las horneará al estar listo.
+    if (oreReady) {
+      for (let i = 0; i < ORE_TIERS.length; i += 1) {
+        if (!tiles[i]) tiles[i] = bakeRockTile(i);
+      }
     }
   }
 
@@ -84,8 +98,13 @@ const Background = (() => {
   }
 
   // --- Textura de roca (tile repetible, uno por nivel) --------------------
+  // Estampa los grupos de roca dibujados a mano (img/ores.png) sobre el
+  // color base del mineral. La semilla fija hace que los grupos ocupen
+  // las MISMAS posiciones en todos los niveles: al cambiar de mineral
+  // solo cambia el arte, no la composición.
   function bakeRockTile(tierIdx) {
     const tier = ORE_TIERS[tierIdx];
+    const CELL = ORE_SHEET.cell;
     const c = document.createElement('canvas');
     c.width = TILE;
     c.height = TILE;
@@ -93,85 +112,43 @@ const Background = (() => {
     b.fillStyle = tier.base;
     b.fillRect(0, 0, TILE, TILE);
 
-    // Semilla fija: las piedras ocupan las mismas posiciones en todos
-    // los niveles, de modo que al cambiar de mineral solo cambia el
-    // color, no el relieve.
     let seed = 12345;
     const rnd = () => {
       seed = (seed * 1664525 + 1013904223) % 4294967296;
       return seed / 4294967296;
     };
 
-    const stonePath = (x, y, r, s) => {
-      b.beginPath();
-      const sides = 7;
-      for (let k = 0; k <= sides; k += 1) {
-        const a = (k / sides) * Math.PI * 2;
-        const rr = r * (0.72 + Math.sin(a * 3 + s) * 0.2);
-        const px = x + Math.cos(a) * rr;
-        const py = y + Math.sin(a) * rr;
-        if (k === 0) b.moveTo(px, py);
-        else b.lineTo(px, py);
-      }
-      b.closePath();
-    };
-
-    // Cada roca se dibuja también desplazada ±TILE para que el patrón
-    // no tenga costuras.
-    const drawStone = (x, y, r, s) => {
+    // Cada grupo se estampa también desplazado ±TILE para que el
+    // patrón repita sin costuras.
+    const stampGroup = (row, x, y, size, rot) => {
+      const sx = tier.sheetCol * CELL;
+      const sy = row * CELL;
       [-TILE, 0, TILE].forEach((ox) => {
         [-TILE, 0, TILE].forEach((oy) => {
-          const cx = x + ox;
-          const cy = y + oy;
-          const g = b.createRadialGradient(
-            cx - r * 0.35, cy - r * 0.45, r * 0.15, cx, cy, r * 1.1
-          );
-          g.addColorStop(0, tier.stone[0]);
-          g.addColorStop(1, tier.stone[1]);
-          b.fillStyle = g;
-          stonePath(cx, cy, r, s);
-          b.fill();
-          b.strokeStyle = 'rgba(0, 0, 0, 0.38)';
-          b.lineWidth = 1.6;
-          b.stroke();
-
-          // Faceta metálica: el borde superior izquierdo capta la luz
-          // y se apaga hacia el inferior derecho.
-          const lg = b.createLinearGradient(cx - r, cy - r, cx + r * 0.6, cy + r * 0.6);
-          lg.addColorStop(0, tier.hl);
-          lg.addColorStop(0.45, 'rgba(255,255,255,0.10)');
-          lg.addColorStop(1, 'rgba(255,255,255,0)');
           b.save();
-          b.globalAlpha = tier.hlAlpha;
-          b.strokeStyle = lg;
-          b.lineWidth = 1.9;
-          stonePath(cx, cy, r, s);
-          b.stroke();
-          b.restore();
-
-          // Lustre interior suave.
-          const sg = b.createRadialGradient(
-            cx - r * 0.4, cy - r * 0.45, 0.5, cx - r * 0.4, cy - r * 0.45, r * 0.85
-          );
-          sg.addColorStop(0, `rgba(255,255,255,${0.16 * tier.hlAlpha * 2})`);
-          sg.addColorStop(1, 'rgba(255,255,255,0)');
-          b.save();
-          stonePath(cx, cy, r, s);
-          b.clip();
-          b.fillStyle = sg;
-          b.fillRect(cx - r * 1.2, cy - r * 1.2, r * 2.4, r * 2.4);
+          b.translate(x + ox, y + oy);
+          b.rotate(rot);
+          b.drawImage(oreImg, sx, sy, CELL, CELL, -size / 2, -size / 2, size, size);
           b.restore();
         });
       });
     };
 
-    for (let i = 0; i < 22; i += 1) {
-      drawStone(rnd() * TILE, rnd() * TILE, 16 + rnd() * 30, i * 2.3);
+    for (let i = 0; i < 7; i += 1) {
+      const row = Math.floor(rnd() * ORE_SHEET.rows);
+      const x = rnd() * TILE;
+      const y = rnd() * TILE;
+      const size = TILE * (0.34 + rnd() * 0.3);
+      const rot = (rnd() - 0.5) * 0.5;
+      stampGroup(row, x, y, size, rot);
     }
     return c;
   }
 
   function patternFor(ctx, tierIdx) {
+    // El arte llega por red: hasta que cargue no hay textura (la pared
+    // muestra solo su gradiente) y se hornea en el primer frame listo.
+    if (!oreReady) return null;
     if (!tiles[tierIdx]) tiles[tierIdx] = bakeRockTile(tierIdx);
     if (!patterns[tierIdx]) {
       patterns[tierIdx] = ctx.createPattern(tiles[tierIdx], 'repeat');
@@ -237,12 +214,15 @@ const Background = (() => {
     ctx.fillStyle = wallGradient(ctx, viewH);
     ctx.fillRect(0, 0, viewW, viewH);
 
+    const shownPattern = patternFor(ctx, shownTier);
+    if (!shownPattern) return; // arte aún cargando: queda el gradiente
+
     const ox = -((worldX * 0.15) % TILE);
     const oy = -((camY * 0.2) % TILE);
     ctx.save();
     ctx.translate(ox, oy);
     ctx.globalAlpha = 0.85;
-    ctx.fillStyle = patternFor(ctx, shownTier);
+    ctx.fillStyle = shownPattern;
     ctx.fillRect(-TILE, -TILE, viewW + TILE * 2, viewH + TILE * 2);
     if (nextTier !== shownTier) {
       // El mineral nuevo aparece por encima del anterior.
