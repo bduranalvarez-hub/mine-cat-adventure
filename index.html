@@ -42,21 +42,25 @@
        estilo acorde. Posiciones en % de la imagen (1023x1537). -->
   <div id="menu" class="overlay menu-screen hidden">
     <div class="menu-art">
-      <button id="btn-music" class="hot" style="left:78.2%;top:1.9%;width:7.8%;height:4.9%"></button>
-      <button id="btn-lang" class="hot" style="left:88%;top:1.9%;width:7.8%;height:4.9%"></button>
       <button id="btn-normal" class="hot" style="left:20%;top:36.1%;width:59.2%;height:8.2%"></button>
       <button id="btn-hard" class="hot" style="left:20%;top:45.9%;width:59.2%;height:8.5%"></button>
       <button id="btn-hardcore" class="hot" style="left:20%;top:55.6%;width:59.2%;height:8.5%"></button>
       <button id="btn-ranking" class="hot" style="left:20%;top:65.7%;width:59.2%;height:6.9%"></button>
       <button id="btn-shop" class="hot" style="left:20%;top:74.2%;width:59.2%;height:7.2%"></button>
-      <button id="btn-music-2" class="hot" style="left:11.7%;top:85.2%;width:20.5%;height:3.6%"></button>
-      <button id="btn-lang-2" class="hot" style="left:11.7%;top:89.4%;width:31%;height:3.5%"></button>
       <a class="hot" href="privacy.html" style="left:38.6%;top:95.5%;width:17.6%;height:3%"></a>
 
-      <button id="btn-add-coins" class="coin-pill2" style="left:2.5%;top:2.1%;height:4.7%">
+      <!-- Controles propios (no pintados en el arte): se anclan con
+           max() al borde VISIBLE de la pantalla, así nunca quedan
+           recortados aunque la ilustración desborde en móvil. -->
+      <button id="btn-add-coins" class="coin-pill2"
+              style="left:calc(max(2.5cqw, 50cqw - 50vw + 10px));top:max(2.1cqw, env(safe-area-inset-top));height:4.7%">
         <span>🪙</span><span id="menu-coin-balance">0</span><span class="plus">+</span>
       </button>
-      <button id="btn-logout" class="player-pill" style="left:27%;top:32.7%;width:46%;height:3.2%">
+      <button id="btn-lang" class="icon-btn2"
+              style="right:calc(max(2cqw, 50cqw - 50vw + 10px));top:max(1.9cqw, env(safe-area-inset-top))">🌐</button>
+      <button id="btn-music" class="icon-btn2"
+              style="right:calc(max(2cqw, 50cqw - 50vw + 10px) + 9.4cqw);top:max(1.9cqw, env(safe-area-inset-top))">🔊</button>
+      <button id="btn-logout" class="player-pill" style="left:27%;top:31.2%;width:46%;height:3.2%">
         <span data-i18n="playerPrefix">Minero:</span>&nbsp;<strong id="player-name"></strong>&nbsp;<u data-i18n="change">cambiar</u>
       </button>
 
@@ -64,8 +68,6 @@
       <span id="best-hard" class="menu-dyn" style="left:20%;top:51.7%;width:59.2%;height:2.3%;font-size:2.6cqw"></span>
       <span id="best-hardcore" class="menu-dyn" style="left:20%;top:61.5%;width:59.2%;height:2.3%;font-size:2.6cqw"></span>
       <span id="menu-coins" class="menu-dyn gold" style="left:20%;top:79.6%;width:59.2%;height:2%;font-size:2.4cqw"></span>
-      <span id="music-state" class="menu-dyn start green" style="left:25.4%;top:85.6%;width:12%;height:2.7%;font-size:2.8cqw"></span>
-      <span id="lang-state" class="menu-dyn start blue" style="left:29.6%;top:89.7%;width:20%;height:2.7%;font-size:2.8cqw"></span>
 
       <p id="guest-notice" class="guest-notice hidden">
         <span data-i18n="guestNotice">🎮 Invitado: tu progreso puede perderse.</span>

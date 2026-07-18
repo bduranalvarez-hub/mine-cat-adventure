@@ -177,6 +177,31 @@ body {
   font-weight: 900;
 }
 
+/* Botones de música e idioma: reemplazan a los pintados en el arte
+   (se borraron de la imagen) para poder anclarlos al borde visible y
+   reflejar el estado real (🔊/🔇). Estilo acorde a los originales. */
+.icon-btn2 {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 7.8cqw;
+  height: 7.8cqw;
+  border-radius: 1.7cqw;
+  background: linear-gradient(#6d3c2c, #4e2a1e);
+  border: 0.45cqw solid #d8c9a8;
+  color: #f5e9d4;
+  font-size: 3.6cqw;
+  font-family: inherit;
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: 0 0.4cqw 1cqw rgba(0, 0, 0, 0.65);
+}
+
+.icon-btn2:active {
+  transform: translateY(0.3cqw);
+}
+
 .player-pill {
   position: absolute;
   display: flex;

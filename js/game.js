@@ -78,7 +78,6 @@ const Game = (() => {
       'best-normal', 'best-hard', 'best-hardcore',
       'player-name', 'nick', 'pin', 'login-error', 'btn-login', 'guest-notice',
       'btn-music', 'menu-coin-balance', 'btn-add-coins',
-      'music-state', 'lang-state',
       'shop', 'shop-list', 'shop-coins', 'shop-daily', 'menu-coins',
     ].forEach((id) => {
       dom[id] = document.getElementById(id);
@@ -128,10 +127,6 @@ const Game = (() => {
     wireButton('tab-hardcore', () => showRanking('hardcore'));
     wireButton('btn-music', toggleMusic);
     wireButton('btn-lang', () => I18n.toggle());
-    // Los mismos controles aparecen dos veces en el arte del menú:
-    // como iconos arriba y como filas de texto en el panel inferior.
-    wireButton('btn-music-2', toggleMusic);
-    wireButton('btn-lang-2', () => I18n.toggle());
     // La recompensa por anuncio aún no está implementada: solo avisa.
     wireButton('btn-add-coins', () => window.alert(I18n.t('comingSoon')));
     wireButton('btn-lang-login', () => I18n.toggle());
@@ -408,13 +403,10 @@ const Game = (() => {
     updateMusicButton();
   }
 
-  // El icono de música está pintado en el arte del menú; el estado
-  // real se muestra en el texto "Music: on/off" del panel inferior.
-  // "on"/"off" es igual en ambos idiomas (el rótulo pintado está en
-  // inglés), y el nombre del idioma se muestra tal cual.
+  // El botón de música es un icono HTML sobre el arte: refleja el
+  // estado directamente (🔊/🔇).
   function updateMusicButton() {
-    dom['music-state'].textContent = Music.isEnabled() ? 'on' : 'off';
-    dom['lang-state'].textContent = I18n.getLang() === 'es' ? 'Español' : 'English';
+    dom['btn-music'].textContent = Music.isEnabled() ? '🔊' : '🔇';
   }
 
   function resize() {
