@@ -316,7 +316,11 @@ const Game = (() => {
       dom['login-error'].classList.remove('hidden');
       return;
     }
-    Leaderboard.setPlayer(name);
+    // Nombre CANÓNICO de la cuenta (el que devolvió el servidor), no
+    // el tecleado: si la cuenta es "BDuran" y escribes "bduran",
+    // entras a la misma cuenta y debes seguir apareciendo como
+    // "BDuran" en el juego y en el ranking, no como un jugador nuevo.
+    Leaderboard.setPlayer(Account.linkedName() || name);
     enterMenu();
   }
 

@@ -15,24 +15,22 @@ create table if not exists public.scores (
   created_at timestamptz not null default now()
 );
 
--- Una sola fila por jugador y modo (la tabla no crece sin control).
+-- Una sola fila por jugador y modo, SIN distinguir mayúsculas
+-- ("BDuran" y "bduran" son el mismo jugador; se conserva la grafía
+-- de la primera fila registrada y la mejor marca).
 -- 1) Elimina duplicados existentes, conservando la mejor marca.
 delete from public.scores a
 using public.scores b
-where a.name = b.name
+where lower(a.name) = lower(b.name)
   and a.mode = b.mode
+  and a.id <> b.id
   and (a.meters < b.meters or (a.meters = b.meters and a.id > b.id));
 
--- 2) Restricción única (name, mode). Guardada para poder re-ejecutar.
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'scores_name_mode_key'
-  ) then
-    alter table public.scores
-      add constraint scores_name_mode_key unique (name, mode);
-  end if;
-end $$;
+-- 2) La restricción vieja (sensible a mayúsculas) se reemplaza por un
+--    índice único sobre lower(name). Idempotente.
+alter table public.scores drop constraint if exists scores_name_mode_key;
+create unique index if not exists scores_name_lower_mode_key
+  on public.scores (lower(name), mode);
 
 -- Índice para ordenar rápido por modo y distancia.
 create index if not exists scores_mode_meters_idx
@@ -67,7 +65,7 @@ as $$
 begin
   insert into public.scores (name, meters, mode)
   values (p_name, p_meters, p_mode)
-  on conflict (name, mode)
+  on conflict ((lower(name)), mode)
   do update set meters = excluded.meters, created_at = now()
   where excluded.meters > public.scores.meters;
 end;
