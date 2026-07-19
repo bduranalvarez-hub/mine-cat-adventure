@@ -237,10 +237,37 @@ const Share = (() => {
     return `${msg}${url ? `\n${url}` : ''}`;
   }
 
+  // ¿Corriendo dentro de la app nativa (Capacitor)?
+  function isNativeApp() {
+    return Boolean(
+      window.Capacitor
+      && typeof window.Capacitor.isNativePlatform === 'function'
+      && window.Capacitor.isNativePlatform()
+    );
+  }
+
   // Devuelve un estado para avisar al usuario: 'shared' | 'downloaded' | 'cancelled'.
   async function share(data) {
     const canvas = buildCard(data);
     const text = shareText(data);
+
+    // 0) App nativa (Android/iOS): el plugin Share de Capacitor abre el
+    // diálogo nativo de forma fiable (texto + enlace al juego). La
+    // tarjeta-imagen se comparte solo en web, donde la Web Share API
+    // acepta archivos; en nativo requeriría escribir a disco primero.
+    // Si el plugin no está disponible, se cae al camino web de abajo.
+    if (isNativeApp()) {
+      const SharePlugin = window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+      if (SharePlugin) {
+        try {
+          await SharePlugin.share({ title: 'Mine Cat Adventure', text });
+          return 'shared';
+        } catch (err) {
+          return 'cancelled'; // el usuario cerró el diálogo
+        }
+      }
+    }
+
     const blob = await canvasToBlob(canvas);
     const file = blob
       ? new File([blob], 'mine-cat-adventure.png', { type: 'image/png' })
