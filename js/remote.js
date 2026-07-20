@@ -147,5 +147,34 @@ const Remote = (() => {
     }
   }
 
-  return { enabled, submit, top, authAccount, syncAccount };
+  // Borra la cuenta y todos sus datos (progreso + entradas del ranking
+  // mundial) del servidor. Requiere el PIN correcto, igual que
+  // authAccount; los errores llegan igual (pin_incorrecto,
+  // cuenta_bloqueada con retryAfter, no_encontrada).
+  async function deleteAccount(name, pin) {
+    if (!enabled()) return null;
+    const res = await withTimeout((signal) =>
+      fetch(`${RemoteConfig.url}/rest/v1/rpc/delete_account`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ p_name: name, p_pin: pin }),
+        signal,
+      })
+    );
+    if (!res.ok) {
+      const err = new Error('http_error');
+      err.code = 'sin_conexion';
+      throw err;
+    }
+    const body = await res.json();
+    if (body && body.error) {
+      const err = new Error(body.error);
+      err.code = body.error;
+      err.retryAfter = body.retryAfter;
+      throw err;
+    }
+    return body;
+  }
+
+  return { enabled, submit, top, authAccount, syncAccount, deleteAccount };
 })();

@@ -12,6 +12,7 @@ const wwwDir = path.join(root, 'www');
 const ITEMS = [
   'index.html',
   'privacy.html',
+  'delete-account.html',
   'manifest.json',
   'sw.js',
   'css',

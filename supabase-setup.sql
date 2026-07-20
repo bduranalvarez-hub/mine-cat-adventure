@@ -275,5 +275,72 @@ begin
 end;
 $$;
 
+-- Borra la cuenta y TODOS sus datos asociados (para el requisito de
+-- Google Play de un flujo de eliminación de cuenta self-service, ver
+-- delete-account.html). Requiere el PIN correcto para evitar que
+-- cualquiera borre la cuenta de otro con solo saber el nombre.
+-- Comparte el mismo bloqueo por intentos fallidos que auth_account
+-- (incrementa/consulta el mismo failed_attempts/locked_until): es el
+-- mismo secreto (el PIN), así que la protección contra fuerza bruta
+-- debe ser una sola, no dos contadores independientes.
+create or replace function public.delete_account(p_name text, p_pin text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_row public.accounts;
+  v_max_attempts constant int := 5;
+  v_lockout_seconds constant int := 300;
+  v_base_attempts int;
+  v_new_attempts int;
+  v_remaining int;
+begin
+  select * into v_row from public.accounts
+    where name_lower = lower(trim(p_name)) for update;
+
+  if not found then
+    return jsonb_build_object('error', 'no_encontrada');
+  end if;
+
+  if v_row.locked_until is not null and v_row.locked_until > now() then
+    v_remaining := ceil(extract(epoch from (v_row.locked_until - now())));
+    return jsonb_build_object('error', 'cuenta_bloqueada', 'retryAfter', v_remaining);
+  end if;
+
+  if v_row.pin_hash <> crypt(p_pin, v_row.pin_hash) then
+    v_base_attempts := case
+      when v_row.locked_until is not null and v_row.locked_until <= now() then 0
+      else v_row.failed_attempts
+    end;
+    v_new_attempts := v_base_attempts + 1;
+
+    if v_new_attempts >= v_max_attempts then
+      update public.accounts
+        set failed_attempts = v_new_attempts,
+            locked_until = now() + make_interval(secs => v_lockout_seconds),
+            updated_at = now()
+        where id = v_row.id;
+      return jsonb_build_object(
+        'error', 'cuenta_bloqueada', 'retryAfter', v_lockout_seconds
+      );
+    end if;
+
+    update public.accounts
+      set failed_attempts = v_new_attempts, locked_until = null, updated_at = now()
+      where id = v_row.id;
+    return jsonb_build_object('error', 'pin_incorrecto');
+  end if;
+
+  -- PIN correcto: borra el ranking mundial asociado y la cuenta.
+  delete from public.scores where lower(name) = lower(v_row.name);
+  delete from public.accounts where id = v_row.id;
+
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
 grant execute on function public.auth_account(text, text) to anon;
 grant execute on function public.sync_account(text, text, int, jsonb, text) to anon;
+grant execute on function public.delete_account(text, text) to anon;

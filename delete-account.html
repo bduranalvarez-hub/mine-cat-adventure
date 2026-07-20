@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Borrar cuenta — Mine Cat Adventure</title>
+  <style>
+    :root {
+      --bg: #1a0f08;
+      --panel: #241207;
+      --gold: #ffd76a;
+      --text: #e8cfa8;
+      --muted: #b89772;
+      --line: #7a4a12;
+      --err: #ff8a7a;
+      --ok: #7dff8e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, 'Segoe UI', sans-serif;
+      line-height: 1.65;
+      padding: 24px 16px 64px;
+    }
+    main { max-width: 560px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 24px; }
+    h1 {
+      color: var(--gold);
+      font-size: clamp(26px, 6vw, 36px);
+      margin: 8px 0 4px;
+      letter-spacing: 1px;
+    }
+    .sub { color: var(--muted); font-size: 15px; }
+    h2 {
+      color: var(--gold);
+      font-size: 19px;
+      margin: 28px 0 10px;
+      border-bottom: 2px solid var(--line);
+      padding-bottom: 6px;
+    }
+    p, li { font-size: 16px; }
+    ul { padding-left: 22px; }
+    li { margin-bottom: 6px; }
+    strong { color: #fff; }
+    a { color: var(--gold); }
+    .highlight {
+      background: var(--panel);
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 20px 0;
+    }
+    form {
+      background: var(--panel);
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    label { font-size: 14px; color: var(--muted); }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.35);
+      color: #ffe9c4;
+      font-size: 17px;
+      font-family: inherit;
+      outline: none;
+    }
+    input:focus { border-color: var(--gold); }
+    button {
+      margin-top: 6px;
+      padding: 13px 18px;
+      border: 3px solid #8f1d10;
+      border-radius: 12px;
+      background: linear-gradient(#a83224, #741a10);
+      color: #ffd9c9;
+      font-size: 17px;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    button:active:not(:disabled) { transform: translateY(2px); }
+    #msg {
+      min-height: 20px;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    #msg.err { color: var(--err); }
+    #msg.ok { color: var(--ok); }
+    .back {
+      display: inline-block;
+      margin-top: 30px;
+      padding: 10px 22px;
+      background: linear-gradient(#8f6d4a, #6b4e30);
+      border: 3px solid var(--line);
+      border-radius: 12px;
+      color: #ffe9c4;
+      text-decoration: none;
+      font-weight: 800;
+    }
+    footer {
+      margin-top: 40px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Borrar cuenta</h1>
+      <p class="sub">Mine Cat Adventure</p>
+    </header>
+
+    <div class="highlight">
+      <p style="margin:0">Aquí puedes borrar de forma permanente tu cuenta
+      de <strong>Mine Cat Adventure</strong> y todos los datos asociados
+      en nuestro servidor. Esta acción <strong>no se puede deshacer</strong>.</p>
+    </div>
+
+    <h2>Qué se borra</h2>
+    <ul>
+      <li>Tu <strong>nombre de usuario</strong> y tu <strong>clave (PIN)</strong>.</li>
+      <li>Tus <strong>monedas</strong> y las <strong>skins</strong> que hayas comprado.</li>
+      <li>Tu(s) entrada(s) en el <strong>ranking mundial</strong> (todos los modos).</li>
+    </ul>
+    <p>Todo se borra <strong>de inmediato</strong>, sin período de
+    retención adicional. El progreso guardado únicamente en tu propio
+    dispositivo (récords locales) no se ve afectado por este formulario;
+    para borrarlo, elimina los datos de la app o del sitio en tu
+    navegador.</p>
+
+    <h2>Cómo borrar tu cuenta</h2>
+    <p>Escribe el nombre de usuario y el PIN de tu cuenta para
+    confirmar que eres su dueño, y presiona "Borrar cuenta".</p>
+
+    <form id="del-form">
+      <div>
+        <label for="name">Nombre de usuario</label>
+        <input id="name" type="text" maxlength="14" autocomplete="off" spellcheck="false" required />
+      </div>
+      <div>
+        <label for="pin">Clave (PIN)</label>
+        <input id="pin" type="tel" inputmode="numeric" maxlength="8" autocomplete="off" required />
+      </div>
+      <button id="submit-btn" type="submit">Borrar cuenta y todos mis datos</button>
+      <p id="msg"></p>
+    </form>
+
+    <h2>¿No tienes una cuenta o prefieres no usar este formulario?</h2>
+    <p>Si jugaste como invitado, tu progreso vive solo en tu dispositivo
+    y no hay nada que borrar en el servidor. Si tienes cualquier problema
+    con este formulario, escríbenos a
+    <a href="mailto:minecatadventure@gmail.com">minecatadventure@gmail.com</a>
+    indicando tu nombre de usuario y te lo borramos nosotros.</p>
+
+    <a class="back" href="./">← Volver al juego</a>
+
+    <footer>
+      Mine Cat Adventure — juego independiente. Personajes y arte
+      originales.
+    </footer>
+  </main>
+
+  <script>
+    'use strict';
+    // Misma clave anon publica que usa el juego (js/remote.js): es
+    // segura de exponer, el acceso lo controla RLS en Supabase.
+    var SUPABASE_URL = 'https://xeludbllrshwswywhttp.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlbHVkYmxscnNod3N3eXdodHRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNzM3NTMsImV4cCI6MjA5ODk0OTc1M30.WlaqdYDtjMAbIj-wGv3Km89Twc-17sLVRcjCudjhVXw';
+
+    var form = document.getElementById('del-form');
+    var nameInput = document.getElementById('name');
+    var pinInput = document.getElementById('pin');
+    var btn = document.getElementById('submit-btn');
+    var msg = document.getElementById('msg');
+
+    var ERROR_TEXT = {
+      no_encontrada: 'No existe ninguna cuenta con ese nombre.',
+      pin_incorrecto: 'Clave incorrecta para ese nombre.',
+      nombre_invalido: 'Nombre inválido.',
+      pin_invalido: 'La clave debe tener de 4 a 8 números.',
+    };
+
+    function setMsg(text, kind) {
+      msg.textContent = text;
+      msg.className = kind || '';
+    }
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var name = nameInput.value.trim();
+      var pin = pinInput.value.trim();
+      if (!name || !pin) return;
+
+      var confirmed = window.confirm(
+        'Vas a borrar la cuenta "' + name + '" y todos sus datos ' +
+        '(monedas, skins, ranking). Esta acción NO se puede deshacer.\n\n' +
+        '¿Confirmas que quieres continuar?'
+      );
+      if (!confirmed) return;
+
+      btn.disabled = true;
+      setMsg('Borrando…', '');
+
+      fetch(SUPABASE_URL + '/rest/v1/rpc/delete_account', {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ p_name: name, p_pin: pin }),
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error('http');
+          return res.json();
+        })
+        .then(function (body) {
+          if (body && body.error) {
+            if (body.error === 'cuenta_bloqueada') {
+              var mins = Math.max(1, Math.ceil((body.retryAfter || 60) / 60));
+              setMsg('Demasiados intentos. Intenta de nuevo en ' + mins + ' min.', 'err');
+            } else {
+              setMsg(ERROR_TEXT[body.error] || 'No se pudo borrar la cuenta.', 'err');
+            }
+            btn.disabled = false;
+            return;
+          }
+          setMsg('✓ Cuenta y datos borrados correctamente.', 'ok');
+          form.reset();
+          btn.disabled = true;
+        })
+        .catch(function () {
+          setMsg('Sin conexión. Intenta de nuevo más tarde.', 'err');
+          btn.disabled = false;
+        });
+    });
+  </script>
+</body>
+</html>
