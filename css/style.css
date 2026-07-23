@@ -571,6 +571,59 @@ body {
   color: #cbb391;
 }
 
+.shop-redeem {
+  width: min(88vw, 380px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.redeem-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.redeem-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 2px solid #7a4a12;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #ffe9c4;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-family: inherit;
+  text-transform: uppercase;
+}
+
+.redeem-input::placeholder {
+  color: #a98a63;
+  letter-spacing: 0.5px;
+  text-transform: none;
+}
+
+.shop-redeem .mode-btn.small {
+  flex-shrink: 0;
+}
+
+.redeem-status {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.redeem-status.ok {
+  color: #7fe07f;
+}
+
+.redeem-status.err {
+  color: #ff9b7a;
+}
+
 .shop-list {
   width: min(88vw, 380px);
   max-height: 52vh;

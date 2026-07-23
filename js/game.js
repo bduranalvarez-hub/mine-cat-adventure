@@ -68,6 +68,12 @@ const Game = (() => {
 
   let rankTab = 'normal';
 
+  // Marca de tiempo hasta la que hay que tragarse el "click" sintetizado
+  // que sigue a un toque en un botón (ver wireButton y el listener de
+  // captura en setup). Evita el "ghost click" que dispararía un botón
+  // recién aparecido debajo del dedo al cambiar de pantalla.
+  let swallowClickUntil = 0;
+
   function setup(canvasEl) {
     canvas = canvasEl;
     ctx = canvas.getContext('2d');
@@ -79,6 +85,7 @@ const Game = (() => {
       'player-name', 'nick', 'pin', 'login-error', 'btn-login', 'guest-notice',
       'btn-music', 'menu-coin-balance', 'btn-add-coins',
       'shop', 'shop-list', 'shop-coins', 'shop-daily', 'menu-coins',
+      'shop-redeem', 'redeem-input', 'btn-redeem', 'redeem-status',
     ].forEach((id) => {
       dom[id] = document.getElementById(id);
     });
@@ -100,6 +107,11 @@ const Game = (() => {
         event.stopPropagation();
         event.preventDefault();
         lastPointer = performance.now();
+        // Al actuar en pointerdown y cambiar de pantalla, el "click"
+        // sintetizado del MISMO toque caería sobre lo que quede debajo
+        // del dedo (p. ej. un botón de modo del menú) y dispararía una
+        // acción no deseada. Se marca para tragárselo (ver setup).
+        swallowClickUntil = lastPointer + 400;
         run();
       });
       el.addEventListener('click', (event) => {
@@ -109,6 +121,24 @@ const Game = (() => {
         run();
       });
     };
+
+    // Se traga el click fantasma que sigue a un toque en un botón que
+    // acaba de cambiar de pantalla. En fase de CAPTURA (corre antes que
+    // el handler de cualquier botón), así impide que ese mismo toque
+    // active un botón recién aparecido debajo del dedo. Es de un solo
+    // disparo: solo come el primer click dentro de la ventana.
+    window.addEventListener(
+      'click',
+      (event) => {
+        if (performance.now() < swallowClickUntil) {
+          swallowClickUntil = 0;
+          event.stopPropagation();
+          event.preventDefault();
+        }
+      },
+      true
+    );
+
     wireButton('btn-normal', () => start('normal'));
     wireButton('btn-hard', () => start('hard'));
     wireButton('btn-hardcore', () => start('hardcore'));
@@ -122,6 +152,11 @@ const Game = (() => {
     wireButton('btn-rank-back', showMenu);
     wireButton('btn-shop', showShop);
     wireButton('btn-shop-back', showMenu);
+    wireButton('btn-redeem', doRedeem);
+    dom['redeem-input'].addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      if (event.key === 'Enter') doRedeem();
+    });
     wireButton('tab-normal', () => showRanking('normal'));
     wireButton('tab-hard', () => showRanking('hard'));
     wireButton('tab-hardcore', () => showRanking('hardcore'));
@@ -240,10 +275,73 @@ const Game = (() => {
       card.append(thumb, name, btn);
       listEl.appendChild(card);
     });
+    updateRedeemUI();
+  }
+
+  // Muestra (o limpia) el mensaje del canje. kind: 'ok' | 'err'.
+  function setRedeemStatus(key, kind, params) {
+    const el = dom['redeem-status'];
+    if (!key) {
+      el.classList.add('hidden');
+      el.textContent = '';
+      return;
+    }
+    el.textContent = I18n.t(key, params);
+    el.classList.remove('hidden', 'ok', 'err');
+    el.classList.add(kind === 'ok' ? 'ok' : 'err');
+  }
+
+  // El canje exige cuenta vinculada: el "una vez por cuenta" no se
+  // puede garantizar para un invitado. Sin cuenta, deshabilita el campo
+  // y muestra el aviso.
+  function updateRedeemUI() {
+    const linked = Account.isLinked();
+    dom['redeem-input'].disabled = !linked;
+    dom['btn-redeem'].disabled = !linked;
+    if (!linked) {
+      dom['redeem-input'].value = '';
+      setRedeemStatus('redeemNeedAccount', 'err');
+    }
+  }
+
+  // Canjea el código escrito por monedas de regalo (vía Account →
+  // Supabase). Refresca la tienda al acertar: sube el saldo y quizá
+  // desbloquea compras.
+  async function doRedeem() {
+    if (!Account.isLinked()) {
+      setRedeemStatus('redeemNeedAccount', 'err');
+      return;
+    }
+    const code = dom['redeem-input'].value.trim();
+    if (!code) {
+      setRedeemStatus('redeemEmpty', 'err');
+      dom['redeem-input'].focus();
+      return;
+    }
+    dom['btn-redeem'].disabled = true;
+    const result = await Account.redeem(code);
+    dom['btn-redeem'].disabled = false;
+    if (result.ok) {
+      dom['redeem-input'].value = '';
+      GameAudio.record();
+      renderShop();
+      setRedeemStatus('redeemOk', 'ok', { n: result.coins });
+      return;
+    }
+    const key = {
+      codigo_invalido: 'redeemErrInvalido',
+      codigo_vencido: 'redeemErrVencido',
+      codigo_agotado: 'redeemErrAgotado',
+      ya_canjeado: 'redeemErrYaCanjeado',
+      no_autorizado: 'redeemNeedAccount',
+    }[result.code] || 'errSinConexion';
+    setRedeemStatus(key, 'err');
   }
 
   function showShop() {
     dom.menu.classList.add('hidden');
+    setRedeemStatus(null);
+    dom['redeem-input'].value = '';
     renderShop();
     dom.shop.classList.remove('hidden');
   }

@@ -176,5 +176,36 @@ const Remote = (() => {
     return body;
   }
 
-  return { enabled, submit, top, authAccount, syncAccount, deleteAccount };
+  // Canjea un código de regalo por monedas. Requiere el token de la
+  // cuenta (igual que syncAccount). Devuelve { ok, coins, balance } si
+  // acierta; los fallos esperados (codigo_invalido, codigo_vencido,
+  // codigo_agotado, ya_canjeado, no_autorizado) llegan como
+  // { error } y se relanzan como excepción con ese código.
+  async function redeemCode(name, token, code) {
+    if (!enabled()) return null;
+    const res = await withTimeout((signal) =>
+      fetch(`${RemoteConfig.url}/rest/v1/rpc/redeem_code`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ p_name: name, p_token: token, p_code: code }),
+        signal,
+      })
+    );
+    if (!res.ok) {
+      const err = new Error('http_error');
+      err.code = 'sin_conexion';
+      throw err;
+    }
+    const body = await res.json();
+    if (body && body.error) {
+      const err = new Error(body.error);
+      err.code = body.error;
+      throw err;
+    }
+    return body;
+  }
+
+  return {
+    enabled, submit, top, authAccount, syncAccount, deleteAccount, redeemCode,
+  };
 })();

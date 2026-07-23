@@ -145,6 +145,25 @@ const Account = (() => {
     adoptRemoteState(remote);
   }
 
+  // Canjea un código de regalo por monedas. Requiere cuenta vinculada:
+  // el canje es único POR CUENTA, algo imposible de garantizar para un
+  // invitado. El servidor suma las monedas y devuelve el saldo nuevo,
+  // que se adopta localmente (setBalance solo sube, y un regalo siempre
+  // sube). Devuelve { ok: true, coins, balance } o { ok: false, code }
+  // con el motivo (no_autorizado, sin_conexion, codigo_invalido,
+  // codigo_vencido, codigo_agotado, ya_canjeado).
+  async function redeem(code) {
+    if (!link) return { ok: false, code: 'no_autorizado' };
+    if (!remoteEnabled()) return { ok: false, code: 'sin_conexion' };
+    try {
+      const res = await Remote.redeemCode(link.name, link.token, code);
+      if (res && Number.isFinite(res.balance)) Coins.setBalance(res.balance);
+      return { ok: true, coins: res ? res.coins : 0, balance: res ? res.balance : null };
+    } catch (err) {
+      return { ok: false, code: err && err.code ? err.code : 'sin_conexion' };
+    }
+  }
+
   // Deja de usar la cuenta vinculada: el progreso local permanece en
   // el dispositivo (no se borra), simplemente deja de sincronizarse.
   function unlink() {
@@ -152,5 +171,5 @@ const Account = (() => {
     persistLink();
   }
 
-  return { isLinked, linkedName, login, push, unlink };
+  return { isLinked, linkedName, login, push, unlink, redeem };
 })();
