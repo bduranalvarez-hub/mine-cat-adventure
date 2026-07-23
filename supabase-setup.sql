@@ -226,9 +226,19 @@ begin
 end;
 $$;
 
--- Sincroniza el progreso local con el remoto: fusiona (no pisa) para
--- que jugar offline en dos dispositivos nunca haga perder monedas ni
--- skins ya compradas. p_token debe coincidir con el de auth_account.
+-- Sincroniza el progreso local con el remoto. p_token debe coincidir
+-- con el de auth_account.
+--
+-- MONEDAS: autoritativas del cliente (se guarda p_coins tal cual). NO
+-- se puede usar greatest(server, cliente): romperia el gasto, porque
+-- al comprar una skin el cliente sube un saldo MENOR y greatest
+-- conservaria el viejo, "reembolsando" la compra (el cliente lo
+-- adopta con setBalance y recupera lo gastado -> skins gratis). El
+-- precio es que, si se juega la MISMA cuenta en dos dispositivos, el
+-- ultimo en sincronizar manda; para un juego casual de un dispositivo
+-- es el comportamiento correcto.
+-- SKINS: union (nunca se pierde una skin ya comprada, en cualquier
+-- dispositivo).
 create or replace function public.sync_account(
   p_name text, p_token text, p_coins int,
   p_skins_owned jsonb, p_active_skin text
@@ -250,7 +260,7 @@ begin
     raise exception 'no_autorizado';
   end if;
 
-  v_coins := greatest(v_row.coins, coalesce(p_coins, 0));
+  v_coins := coalesce(p_coins, v_row.coins);
   select coalesce(jsonb_agg(distinct v), '["sphynx"]'::jsonb)
     into v_skins
     from (
