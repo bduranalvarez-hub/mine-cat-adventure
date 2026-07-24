@@ -87,7 +87,7 @@ const Obstacles = (() => {
       ascendingNear(track, meetX) ||
       !Track.hasRailAt(track, spawnX)
     ) {
-      obstacles.cartTimer = 0.7; // reintenta en un momento
+      obstacles.cartTimer = c.retryDelay || 0.7; // reintenta en un momento
       return;
     }
 

@@ -83,19 +83,29 @@ const Modes = (() => {
     maxSlope: 0.75,
     // Con rieles de 300-600 casi todo es salto: los vagones caben
     // solo en los tramos largos y el margen se reduce acorde.
-    wreckSpacingFactor: 0.35,
+    // Vagones bastante espaciados: en el terreno fragmentado de
+    // hardcore, si estan muy juntos ocupan casi todos los tramos de
+    // riel firme y el enemigo (que necesita cruce valido) casi nunca
+    // aparece. Con 0.72 quedan ~70 vagones y el enemigo respira.
+    wreckSpacingFactor: 0.72,
     wreckRailMargin: 240,
     warnDistance: 1500,
     musicTempo: 150,
     coinMultiplier: 3,
     oncoming: Object.freeze({
       firstDelay: 4,
-      intervalStart: 2.75, // el doble de carros que DIFICIL
-      intervalEnd: 1.4,
-      speedStart: 460, // y el doble de rapidos
+      intervalStart: 2.5,
+      intervalEnd: 1.25,
+      speedStart: 460, // el doble de rapidos que DIFICIL
       speedRange: 440,
-      meetWreckMargin: 560,
-      meetRailMargin: 130, // rieles de 300-600: si fuera mayor, nunca aparecerían
+      // Margen anti-vagon holgado para no encadenar enemigo+vagon muy
+      // pegados, pero menor que antes (560) para no posponer tanto.
+      meetWreckMargin: 400,
+      meetRailMargin: 110, // rieles de 300-900: si fuera mayor, casi no aparecerían
+      // Al posponer un intento (cruce invalido), reintenta pronto: en
+      // hardcore los tramos validos son escasos, asi que probar mas
+      // seguido es lo que hace que el enemigo llegue a aparecer.
+      retryDelay: 0.25,
     }),
     storageKey: 'mine-cat-adventure-best-hardcore',
   });
