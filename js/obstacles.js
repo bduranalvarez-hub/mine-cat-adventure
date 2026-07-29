@@ -138,7 +138,10 @@ const Obstacles = (() => {
     o.x += o.vx * dt;
     if (o.x <= o.hopToX) {
       o.hopping = false;
-      o.x = o.hopToX;
+      // Se posa unos px DENTRO del riel de destino (no en el borde), para
+      // que slopeAt no muestree sobre el hueco y no salga un frame
+      // "acostado" al aterrizar.
+      o.x = o.hopToX - CONFIG.CART.HOP_LAND_INSET;
       o.dropY = 0;
       o.tilt = 0;
       return;

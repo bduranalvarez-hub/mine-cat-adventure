@@ -66,6 +66,11 @@ const CONFIG = Object.freeze({
     HOP_MIN_HEIGHT: 55, // altura mínima del arco (px de mundo)
     HOP_HEIGHT_FACTOR: 0.5, // altura extra proporcional al ancho del hueco
     HOP_MAX_HEIGHT: 130,
+    // Al aterrizar de un salto, el enemigo se posa unos px DENTRO del
+    // riel (no justo en el borde derecho): así slopeAt no muestrea sobre
+    // el hueco y no aparece un frame "acostado". Debe superar el ±10 de
+    // slopeAt para que la muestra caiga sobre el riel.
+    HOP_LAND_INSET: 14,
   }),
 
   TRACK: Object.freeze({
