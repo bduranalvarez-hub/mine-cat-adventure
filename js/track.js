@@ -144,6 +144,27 @@ const Track = (() => {
     );
   }
 
+  // Borde izquierdo (x0) del tramo que contiene x, o null si x no está
+  // sobre riel. Da el ancho exacto del hueco al que se asoma un objeto.
+  function railLeftEdgeAt(track, x) {
+    for (const s of track.segments) {
+      if (x >= s.x0 && x <= s.x1) return s.x0;
+    }
+    return null;
+  }
+
+  // Borde derecho (x1) del tramo de riel más cercano estrictamente a la
+  // izquierda de x. Sirve para que un objeto que va a salir por el borde
+  // izquierdo de su tramo sepa dónde aterrizaría si saltara el hueco.
+  // Devuelve null si no hay riel a la izquierda.
+  function railRightEdgeLeftOf(track, x) {
+    let best = null;
+    for (const s of track.segments) {
+      if (s.x1 < x && (best === null || s.x1 > best)) best = s.x1;
+    }
+    return best;
+  }
+
   function buildRailPath(track, worldX, camY, x0, x1, dx, dy) {
     const step = 18;
     const path = new Path2D();
@@ -269,6 +290,6 @@ const Track = (() => {
 
   return {
     create, extend, prune, heightAt, slopeAt,
-    hasRailAt, hasRailAround, draw,
+    hasRailAt, hasRailAround, railLeftEdgeAt, railRightEdgeLeftOf, draw,
   };
 })();

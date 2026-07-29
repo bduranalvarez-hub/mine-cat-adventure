@@ -100,8 +100,55 @@ const Obstacles = (() => {
       vy: 0,
       dropY: 0,
       falling: false,
+      hopping: false,
+      tilt: 0,
       seed: Math.random() * 10,
     });
+  }
+
+  // Inicia un salto sobre el hueco que el enemigo tiene delante, si el
+  // riel del otro lado está dentro del alcance. Devuelve false si no se
+  // puede saltar (hueco demasiado ancho o sin riel a la izquierda), en
+  // cuyo caso el enemigo cae al vacío como antes.
+  function startHop(o, track) {
+    const landX = Track.railRightEdgeLeftOf(track, o.x);
+    if (landX === null) return false;
+    // Ancho REAL del hueco: desde el borde del riel actual (no desde o.x,
+    // que ya sobrepasó el borde unos px) hasta el riel de destino.
+    const nearEdge = Track.railLeftEdgeAt(track, o.x);
+    const gap = (nearEdge === null ? o.x : nearEdge) - landX;
+    if (gap > CONFIG.CART.HOP_MAX_GAP) return false;
+    o.hopping = true;
+    o.hopFromX = o.x;
+    o.hopToX = landX;
+    o.hopFromY = Track.heightAt(track, o.x);
+    o.hopToY = Track.heightAt(track, landX);
+    o.hopHeight = Math.min(
+      CONFIG.CART.HOP_MAX_HEIGHT,
+      CONFIG.CART.HOP_MIN_HEIGHT + gap * CONFIG.CART.HOP_HEIGHT_FACTOR
+    );
+    return true;
+  }
+
+  // Avanza el arco del salto. La altura es la recta entre los dos bordes
+  // más una parábola; dropY se calcula como el desfase respecto a la
+  // altura de la pista en x, de modo que worldYOf (heightAt + dropY) dé
+  // la trayectoria del arco. Al llegar al borde de destino, aterriza.
+  function stepHop(o, track, dt) {
+    o.x += o.vx * dt;
+    if (o.x <= o.hopToX) {
+      o.hopping = false;
+      o.x = o.hopToX;
+      o.dropY = 0;
+      o.tilt = 0;
+      return;
+    }
+    const span = o.hopFromX - o.hopToX;
+    const t = span > 0 ? (o.hopFromX - o.x) / span : 1;
+    const base = o.hopFromY + (o.hopToY - o.hopFromY) * t;
+    const arc = -o.hopHeight * 4 * t * (1 - t);
+    o.dropY = base + arc - Track.heightAt(track, o.x);
+    o.tilt = (0.5 - t) * 0.9; // morro arriba al subir, abajo al bajar
   }
 
   function update(obstacles, track, dt, worldX, viewW, difficulty, px, playerSpeed) {
@@ -110,13 +157,24 @@ const Obstacles = (() => {
 
     obstacles.list.forEach((o) => {
       if (o.type !== 'cart') return;
-      if (!o.falling) {
-        o.x += o.vx * dt;
-        if (!Track.hasRailAt(track, o.x)) o.falling = true;
-      } else {
+      if (o.falling) {
         o.x += o.vx * 0.4 * dt;
         o.vy += CONFIG.GRAVITY * dt;
         o.dropY += o.vy * dt;
+        return;
+      }
+      if (o.hopping) {
+        stepHop(o, track, dt);
+        return;
+      }
+      // Rodando sobre el riel: si el próximo paso cae en un hueco,
+      // intenta saltarlo; si no se puede, se precipita al vacío.
+      const nextX = o.x + o.vx * dt;
+      if (Track.hasRailAt(track, nextX)) {
+        o.x = nextX;
+      } else if (!startHop(o, track)) {
+        o.falling = true;
+        o.x = nextX;
       }
     });
 
@@ -166,7 +224,11 @@ const Obstacles = (() => {
       if (o.type === 'wreck') {
         Sprites.drawWreck(ctx, sx, sy, o.seed);
       } else {
-        const tilt = o.falling ? 0.5 : Math.atan(Track.slopeAt(track, o.x));
+        const tilt = o.falling
+          ? 0.5
+          : o.hopping
+            ? o.tilt
+            : Math.atan(Track.slopeAt(track, o.x));
         Sprites.drawEnemy(ctx, sx, sy, time + o.seed, tilt, o.x);
       }
     });

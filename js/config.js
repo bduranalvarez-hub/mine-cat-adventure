@@ -57,6 +57,15 @@ const CONFIG = Object.freeze({
     WIDTH: 96,
     HEIGHT: 54,
     WHEEL_RADIUS: 13,
+    // Salto del enemigo sobre los huecos: en pantallas anchas (móvil
+    // horizontal) el enemigo cruza muchos tramos antes de encontrarse
+    // con el jugador; sin saltar caía al vacío antes de la interacción.
+    // Salta huecos de hasta HOP_MAX_GAP; los más anchos igual lo hacen
+    // caer (así no TODOS sobreviven, se conserva algo de variedad).
+    HOP_MAX_GAP: 300,
+    HOP_MIN_HEIGHT: 55, // altura mínima del arco (px de mundo)
+    HOP_HEIGHT_FACTOR: 0.5, // altura extra proporcional al ancho del hueco
+    HOP_MAX_HEIGHT: 130,
   }),
 
   TRACK: Object.freeze({
