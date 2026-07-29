@@ -61,7 +61,13 @@ const Modes = (() => {
       speedStart: 250,
       speedRange: 240,
       meetWreckMargin: 480,
-      meetRailMargin: 340,
+      // En pantalla ancha (móvil horizontal) el enemigo casi no aparecía
+      // en DIFÍCIL: exigía 340 de riel a cada lado del cruce (más que
+      // FÁCIL, 280), y en landscape ese cruce se predice lejos y falla
+      // seguido. Se baja a 280 y se reintenta más rápido (retryDelay)
+      // para que aparezca a un ritmo acorde a la dificultad.
+      meetRailMargin: 280,
+      retryDelay: 0.5,
     }),
     storageKey: 'mine-cat-adventure-best-hard',
   });
