@@ -22,18 +22,40 @@ const Skins = (() => {
     return rec;
   }
 
+  // Rareza de las skins: define el precio y el color de la etiqueta. El
+  // precio de cada skin sale de su rareza (una sola fuente de verdad).
+  // Orden de menor a mayor para ordenar la tienda.
+  const RARITY = Object.freeze({
+    comun: { key: 'comun', nameKey: 'rarityComun', order: 1, price: 1000, color: '#aeb9c2' },
+    rara: { key: 'rara', nameKey: 'rarityRara', order: 2, price: 1500, color: '#4aa3ff' },
+    epica: { key: 'epica', nameKey: 'rarityEpica', order: 3, price: 3000, color: '#c56bff' },
+    legendaria: { key: 'legendaria', nameKey: 'rarityLegendaria', order: 4, price: 5000, color: '#ffb020' },
+  });
+
   // renderW = ancho del personaje en unidades de mundo (se escala la imagen
   // manteniendo proporción). dy = ajuste vertical fino sobre el borde.
   // front: el personaje se dibuja delante de la vagoneta (sus manos van
   // agarradas al borde); sin front va detrás y el carro le tapa el cuerpo.
+  // rarity: clave de RARITY; sphynx es la inicial (gratis, sin rareza).
   const LIST = [
-    { id: 'sphynx', nameKey: 'skinSphynx', src: 'img/char-sphynx.png', price: 0, renderW: 118, dx: 6, dy: 0 },
-    { id: 'bebe', nameKey: 'skinBebe', src: 'img/skin-bebe.png', price: 1000, renderW: 112, dx: 0, dy: 0, front: true },
-    { id: 'esqueleto', nameKey: 'skinEsqueleto', src: 'img/skin-esqueleto.png', price: 1000, renderW: 112, dx: 0, dy: 0, front: true },
-    { id: 'robot', nameKey: 'skinRobot', src: 'img/skin-robot.png', price: 1000, renderW: 126, dx: 0, dy: 0, front: true },
-    { id: 'gatoreal', nameKey: 'skinGatoreal', src: 'img/skin-gatoreal.png', price: 3000, renderW: 118, dx: 6, dy: 0 },
+    { id: 'sphynx', nameKey: 'skinSphynx', src: 'img/char-sphynx.png', price: 0, rarity: null, renderW: 118, dx: 6, dy: 0 },
+    // Común
+    { id: 'pirata', nameKey: 'skinPirata', src: 'img/skin-pirata.png', rarity: 'comun', renderW: 120, dx: 4, dy: 0 },
+    { id: 'doctor', nameKey: 'skinDoctor', src: 'img/skin-doctor.png', rarity: 'comun', renderW: 116, dx: 2, dy: 0 },
+    { id: 'bebe', nameKey: 'skinBebe', src: 'img/skin-bebe.png', rarity: 'comun', renderW: 112, dx: 0, dy: 0, front: true },
+    { id: 'siames', nameKey: 'skinSiames', src: 'img/skin-siames.png', rarity: 'comun', renderW: 120, dx: 4, dy: 0 },
+    { id: 'naranja', nameKey: 'skinNaranja', src: 'img/skin-naranja.png', rarity: 'comun', renderW: 120, dx: 4, dy: 0 },
+    // Rara
+    { id: 'esqueleto', nameKey: 'skinEsqueleto', src: 'img/skin-esqueleto.png', rarity: 'rara', renderW: 112, dx: 0, dy: 0, front: true },
+    { id: 'robot', nameKey: 'skinRobot', src: 'img/skin-robot.png', rarity: 'rara', renderW: 126, dx: 0, dy: 0, front: true },
+    // Legendaria
+    { id: 'gatoreal', nameKey: 'skinGatoreal', src: 'img/skin-gatoreal.png', rarity: 'legendaria', renderW: 118, dx: 6, dy: 0 },
   ];
-  LIST.forEach((s) => { s.rec = load(s.src); });
+  // El precio sale de la rareza (sphynx conserva su price: 0).
+  LIST.forEach((s) => {
+    if (s.rarity && RARITY[s.rarity]) s.price = RARITY[s.rarity].price;
+    s.rec = load(s.src);
+  });
 
   const ENEMY = { rec: load('img/char-enemy.png'), renderW: 92, dx: 0, dy: 0, front: true };
 
@@ -77,6 +99,7 @@ const Skins = (() => {
 
   return {
     LIST,
+    RARITY,
     ENEMY,
     DEFAULT_ID,
     getActive() { return byId(active); },

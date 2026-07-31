@@ -223,9 +223,19 @@ const Game = (() => {
     updateCoinsUI();
     const listEl = dom['shop-list'];
     listEl.textContent = '';
+    let epicaShown = false;
     Skins.LIST.forEach((skin) => {
+      // La rareza ÉPICA aún no tiene skins: se muestra un aviso
+      // "próximamente" en su lugar, justo antes de las legendarias.
+      if (!epicaShown && skin.rarity === 'legendaria') {
+        listEl.appendChild(makeSoonCard('epica'));
+        epicaShown = true;
+      }
+
+      const rar = skin.rarity ? Skins.RARITY[skin.rarity] : null;
       const card = document.createElement('div');
       card.className = 'skin-card';
+      if (rar) card.style.setProperty('--rarity', rar.color);
 
       const thumb = document.createElement('img');
       thumb.className = 'skin-thumb';
@@ -233,9 +243,20 @@ const Game = (() => {
       thumb.alt = '';
       thumb.draggable = false;
 
+      const info = document.createElement('div');
+      info.className = 'skin-info';
       const name = document.createElement('span');
       name.className = 'skin-name';
       name.textContent = I18n.t(skin.nameKey);
+      info.appendChild(name);
+      if (rar) {
+        const badge = document.createElement('span');
+        badge.className = 'skin-rarity';
+        badge.textContent = I18n.t(rar.nameKey);
+        badge.style.color = rar.color;
+        badge.style.borderColor = rar.color;
+        info.appendChild(badge);
+      }
 
       const btn = document.createElement('button');
       btn.className = 'skin-btn';
@@ -272,10 +293,37 @@ const Game = (() => {
         }
       }
 
-      card.append(thumb, name, btn);
+      card.append(thumb, info, btn);
       listEl.appendChild(card);
     });
     updateRedeemUI();
+  }
+
+  // Tarjeta "próximamente" para una rareza sin skins todavía (épica).
+  function makeSoonCard(rarityKey) {
+    const rar = Skins.RARITY[rarityKey];
+    const card = document.createElement('div');
+    card.className = 'skin-card skin-card-soon';
+    card.style.setProperty('--rarity', rar.color);
+
+    const q = document.createElement('div');
+    q.className = 'skin-thumb skin-thumb-soon';
+    q.textContent = '?';
+
+    const info = document.createElement('div');
+    info.className = 'skin-info';
+    const soon = document.createElement('span');
+    soon.className = 'skin-name';
+    soon.textContent = I18n.t('shopSoon');
+    const badge = document.createElement('span');
+    badge.className = 'skin-rarity';
+    badge.textContent = I18n.t(rar.nameKey);
+    badge.style.color = rar.color;
+    badge.style.borderColor = rar.color;
+    info.append(soon, badge);
+
+    card.append(q, info);
+    return card;
   }
 
   // Muestra (o limpia) el mensaje del canje. kind: 'ok' | 'err'.
