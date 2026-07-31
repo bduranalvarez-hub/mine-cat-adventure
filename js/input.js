@@ -8,6 +8,12 @@ function setupInput(onAction, onRelease) {
   const isInteractive = (target) =>
     target && target.closest && target.closest('button, input, a, select, textarea');
 
+  // Contenedores con scroll propio (listas de la tienda y el ranking):
+  // dentro de ellos NO hay que bloquear el touchmove, o el usuario no
+  // puede arrastrar para ver el resto de la lista.
+  const isScrollable = (target) =>
+    target && target.closest && target.closest('.shop-list, .rank-list');
+
   window.addEventListener(
     'pointerdown',
     (event) => {
@@ -46,7 +52,7 @@ function setupInput(onAction, onRelease) {
   document.addEventListener(
     'touchmove',
     (e) => {
-      if (!isInteractive(e.target)) e.preventDefault();
+      if (!isInteractive(e.target) && !isScrollable(e.target)) e.preventDefault();
     },
     { passive: false }
   );

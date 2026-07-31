@@ -499,6 +499,10 @@ body {
   width: min(80vw, 340px);
   max-height: 46vh;
   overflow-y: auto;
+  /* Reactiva el scroll táctil vertical (el body lo desactiva con
+     touch-action: none para el juego). */
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -628,6 +632,9 @@ body {
   width: min(88vw, 380px);
   max-height: 52vh;
   overflow-y: auto;
+  /* Reactiva el scroll táctil vertical (ver .rank-list). */
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   gap: 10px;
