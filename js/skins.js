@@ -41,7 +41,10 @@ const Skins = (() => {
     { id: 'sphynx', nameKey: 'skinSphynx', src: 'img/char-sphynx.png', price: 0, rarity: null, renderW: 118, dx: 6, dy: 0 },
     // Común
     { id: 'pirata', nameKey: 'skinPirata', src: 'img/skin-pirata.png', rarity: 'comun', renderW: 120, dx: 4, dy: 0 },
-    { id: 'doctor', nameKey: 'skinDoctor', src: 'img/skin-doctor.png', rarity: 'comun', renderW: 116, dx: 2, dy: 0 },
+    // dy bajo: hunde la bata blanca tras el borde del vagón para que su
+    // corte recto no asome como una línea blanca (el resto de skins tapan
+    // esa zona con pelaje oscuro; la bata clara resaltaba).
+    { id: 'doctor', nameKey: 'skinDoctor', src: 'img/skin-doctor.png', rarity: 'comun', renderW: 116, dx: 2, dy: 20 },
     { id: 'bebe', nameKey: 'skinBebe', src: 'img/skin-bebe.png', rarity: 'comun', renderW: 112, dx: 0, dy: 0, front: true },
     { id: 'siames', nameKey: 'skinSiames', src: 'img/skin-siames.png', rarity: 'comun', renderW: 120, dx: 4, dy: 0 },
     { id: 'naranja', nameKey: 'skinNaranja', src: 'img/skin-naranja.png', rarity: 'comun', renderW: 120, dx: 4, dy: 0 },
