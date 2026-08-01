@@ -41,10 +41,11 @@ const Skins = (() => {
     { id: 'sphynx', nameKey: 'skinSphynx', src: 'img/char-sphynx.png', price: 0, rarity: null, renderW: 118, dx: 6, dy: 0 },
     // Común
     { id: 'pirata', nameKey: 'skinPirata', src: 'img/skin-pirata.png', rarity: 'comun', renderW: 120, dx: 4, dy: 0 },
-    // La bata del doctor se rellenó de blanco en su parte baja (se cerró
-    // la V del escote) para que se vea como una bata sólida entrando al
-    // vagón, no como trozos de solapa cortados. dy leve para asentarla.
-    { id: 'doctor', nameKey: 'skinDoctor', src: 'img/skin-doctor.png', rarity: 'comun', renderW: 116, dx: 2, dy: 8 },
+    // Doctor: se muestra la bata COMPLETA (V, solapas, estetoscopio, cruz)
+    // apoyada sobre el borde del vagón. dy negativo lo sube apenas para que
+    // el borde caiga en la base de la bata, no cortando el escote a media
+    // altura (bajarlo dejaba ver solo la punta de la V, se veía mal).
+    { id: 'doctor', nameKey: 'skinDoctor', src: 'img/skin-doctor.png', rarity: 'comun', renderW: 120, dx: 2, dy: -2 },
     { id: 'bebe', nameKey: 'skinBebe', src: 'img/skin-bebe.png', rarity: 'comun', renderW: 112, dx: 0, dy: 0, front: true },
     { id: 'siames', nameKey: 'skinSiames', src: 'img/skin-siames.png', rarity: 'comun', renderW: 120, dx: 4, dy: 0 },
     { id: 'naranja', nameKey: 'skinNaranja', src: 'img/skin-naranja.png', rarity: 'comun', renderW: 120, dx: 4, dy: 0 },
