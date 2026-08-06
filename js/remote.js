@@ -205,7 +205,60 @@ const Remote = (() => {
     return body;
   }
 
+  // Registra que el jugador vio un anuncio recompensado (revivir o
+  // monedas) y devuelve el conteo actualizado. El servidor aplica el
+  // tope diario y detecta el desbloqueo de la skin épica por vistas.
+  // Los fallos esperados (limite_diario, no_autorizado) llegan como
+  // { error } y se relanzan como excepción con ese código.
+  async function recordAdWatch(name, token) {
+    if (!enabled()) return null;
+    const res = await withTimeout((signal) =>
+      fetch(`${RemoteConfig.url}/rest/v1/rpc/record_ad_watch`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ p_name: name, p_token: token }),
+        signal,
+      })
+    );
+    if (!res.ok) {
+      const err = new Error('http_error');
+      err.code = 'sin_conexion';
+      throw err;
+    }
+    const body = await res.json();
+    if (body && body.error) {
+      const err = new Error(body.error);
+      err.code = body.error;
+      throw err;
+    }
+    return body;
+  }
+
+  // Consulta el estado de anuncios (vistas hoy/tope y total/umbral de
+  // desbloqueo) sin registrar una vista nueva. Para pintar el
+  // contador en la tienda al abrirla. Falla en silencio (null): el
+  // contador no es crítico para jugar.
+  async function adStatus(name, token) {
+    if (!enabled()) return null;
+    try {
+      const res = await withTimeout((signal) =>
+        fetch(`${RemoteConfig.url}/rest/v1/rpc/get_ad_status`, {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ p_name: name, p_token: token }),
+          signal,
+        })
+      );
+      if (!res.ok) return null;
+      const body = await res.json();
+      return body && !body.error ? body : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
   return {
     enabled, submit, top, authAccount, syncAccount, deleteAccount, redeemCode,
+    recordAdWatch, adStatus,
   };
 })();

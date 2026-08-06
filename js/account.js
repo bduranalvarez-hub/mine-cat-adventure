@@ -171,5 +171,39 @@ const Account = (() => {
     persistLink();
   }
 
-  return { isLinked, linkedName, login, push, unlink, redeem };
+  // Registra una vista de anuncio recompensado (revivir o monedas)
+  // tras confirmarse en el SDK nativo. Requiere cuenta vinculada: el
+  // tope diario y el desbloqueo de la skin épica son POR CUENTA, algo
+  // que no se puede garantizar para un invitado. Si el desbloqueo
+  // ocurrió en esta llamada, otorga la skin localmente (Skins.grant
+  // ignora IDs que el catálogo todavía no reconoce, así que es seguro
+  // llamarlo aunque la skin no tenga arte todavía).
+  async function watchAd() {
+    if (!link) return { ok: false, code: 'no_autorizado' };
+    if (!remoteEnabled()) return { ok: false, code: 'sin_conexion' };
+    try {
+      const res = await Remote.recordAdWatch(link.name, link.token);
+      if (res && res.epicUnlocked) Skins.grant('ads_epica');
+      return {
+        ok: true,
+        today: res ? res.today : 0,
+        cap: res ? res.cap : 10,
+        total: res ? res.total : 0,
+        epicUnlocked: Boolean(res && res.epicUnlocked),
+      };
+    } catch (err) {
+      return { ok: false, code: err && err.code ? err.code : 'sin_conexion' };
+    }
+  }
+
+  // Consulta el estado de anuncios sin registrar una vista nueva.
+  // Devuelve null si no hay cuenta vinculada o falla la consulta.
+  function adStatus() {
+    if (!link || !remoteEnabled()) return Promise.resolve(null);
+    return Remote.adStatus(link.name, link.token);
+  }
+
+  return {
+    isLinked, linkedName, login, push, unlink, redeem, watchAd, adStatus,
+  };
 })();
