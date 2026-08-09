@@ -40,9 +40,13 @@ const Background = (() => {
       glintDensity: 0.40, glint: [170, 225, 255] },
   ];
 
-  // Hoja de sprites con los grupos de roca dibujados a mano:
-  // 6 columnas (una por mineral) x 4 grupos, en celdas de 200 px.
-  const ORE_SHEET = { cols: 6, rows: 4, cell: 200 };
+  // Hoja de sprites con los bloques de roca dibujados a mano: 6
+  // columnas, una por mineral, en el mismo orden que ORE_TIERS. Las
+  // celdas son RECTANGULARES (más altas que anchas), así que al
+  // estamparlas hay que respetar su proporción o las rocas se
+  // deforman (ver bakeRockTile). Un solo bloque por mineral: la
+  // variedad sale del tamaño, la rotación y el volteo horizontal.
+  const ORE_SHEET = { cols: 6, cellW: 197, cellH: 345 };
   const oreImg = new Image();
   let oreReady = false;
   oreImg.onload = () => { oreReady = true; };
@@ -104,7 +108,9 @@ const Background = (() => {
   // solo cambia el arte, no la composición.
   function bakeRockTile(tierIdx) {
     const tier = ORE_TIERS[tierIdx];
-    const CELL = ORE_SHEET.cell;
+    const CW = ORE_SHEET.cellW;
+    const CH = ORE_SHEET.cellH;
+    const ASPECT = CH / CW; // los bloques son más altos que anchos
     const c = document.createElement('canvas');
     c.width = TILE;
     c.height = TILE;
@@ -118,29 +124,34 @@ const Background = (() => {
       return seed / 4294967296;
     };
 
-    // Cada grupo se estampa también desplazado ±TILE para que el
-    // patrón repita sin costuras.
-    const stampGroup = (row, x, y, size, rot) => {
-      const sx = tier.sheetCol * CELL;
-      const sy = row * CELL;
+    // Cada bloque se estampa también desplazado ±TILE para que el
+    // patrón repita sin costuras. flip voltea en horizontal: como hay
+    // un solo bloque por mineral, es lo que evita que se note repetido.
+    const stampGroup = (x, y, w, rot, flip) => {
+      const sx = tier.sheetCol * CW;
+      const h = w * ASPECT;
       [-TILE, 0, TILE].forEach((ox) => {
         [-TILE, 0, TILE].forEach((oy) => {
           b.save();
           b.translate(x + ox, y + oy);
           b.rotate(rot);
-          b.drawImage(oreImg, sx, sy, CELL, CELL, -size / 2, -size / 2, size, size);
+          b.scale(flip, 1);
+          b.drawImage(oreImg, sx, 0, CW, CH, -w / 2, -h / 2, w, h);
           b.restore();
         });
       });
     };
 
-    for (let i = 0; i < 7; i += 1) {
-      const row = Math.floor(rnd() * ORE_SHEET.rows);
+    // Menos bloques y más grandes que con el arte anterior: estos ya
+    // vienen llenos de roca, así que 5 pasadas cubren la pared sin
+    // volverla ruidosa.
+    for (let i = 0; i < 5; i += 1) {
       const x = rnd() * TILE;
       const y = rnd() * TILE;
-      const size = TILE * (0.34 + rnd() * 0.3);
+      const w = TILE * (0.45 + rnd() * 0.3);
       const rot = (rnd() - 0.5) * 0.5;
-      stampGroup(row, x, y, size, rot);
+      const flip = rnd() < 0.5 ? -1 : 1;
+      stampGroup(x, y, w, rot, flip);
     }
     return c;
   }
