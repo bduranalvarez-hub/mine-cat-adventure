@@ -218,7 +218,28 @@ alter table public.accounts enable row level security;
 -- devuelven como {"error": "..."} en vez de con raise exception: una
 -- excepción deshace TODO el trabajo de la función, incluyendo el
 -- contador de intentos fallidos que justo queremos conservar.
-create or replace function public.auth_account(p_name text, p_pin text)
+-- p_create declara la INTENCIÓN del jugador y es lo que permite dar el
+-- error correcto en vez de adivinar:
+--   true  (crear cuenta) → si el nombre existe: nombre_ya_existe.
+--   false (ingresar)     → si el nombre no existe: cuenta_no_existe.
+--   null  (compatibilidad) → comportamiento antiguo: crea si no existe.
+--
+-- Sin esto, un jugador que se equivoca al teclear su nombre no recibía
+-- un error: recibía una cuenta NUEVA y vacía, sin sus monedas, sus
+-- skins ni sus récords, y sin ninguna pista de qué había pasado. Y
+-- quien intentaba registrarse con un nombre ya tomado recibía
+-- "pin_incorrecto", que no significa nada para quien no estaba
+-- iniciando sesión.
+--
+-- La firma de 2 argumentos SE CONSERVA como compatibilidad (abajo),
+-- al revés que en submit_score. Ahí la versión vieja era el agujero de
+-- seguridad y había que eliminarla; aquí la vieja autentica igual de
+-- bien, solo es ambigua, y las apps Android ya instaladas llevan el JS
+-- empaquetado: eliminarla las dejaría sin poder iniciar sesión. Se
+-- puede quitar cuando el parque de instalaciones esté actualizado.
+create or replace function public.auth_account(
+  p_name text, p_pin text, p_create boolean
+)
 returns jsonb
 language plpgsql
 security definer
@@ -247,6 +268,13 @@ begin
   select * into v_row from public.accounts where name_lower = lower(v_name) for update;
 
   if found then
+    -- Venía a REGISTRARSE y el nombre ya está tomado. Se avisa como tal,
+    -- sin tocar el contador de intentos fallidos: no es un PIN errado,
+    -- así que no debe acercar a nadie al bloqueo de la cuenta ajena.
+    if p_create then
+      return jsonb_build_object('error', 'nombre_ya_existe');
+    end if;
+
     if v_row.locked_until is not null and v_row.locked_until > now() then
       v_remaining := ceil(extract(epoch from (v_row.locked_until - now())));
       return jsonb_build_object('error', 'cuenta_bloqueada', 'retryAfter', v_remaining);
@@ -289,6 +317,15 @@ begin
         returning * into v_row;
     end if;
   else
+    -- Venía a INGRESAR y la cuenta no existe: se avisa, en vez de
+    -- crearla en silencio. Este era el caso del nombre mal tecleado,
+    -- que dejaba al jugador dentro de una cuenta vacía creyendo haber
+    -- perdido su progreso. "is false" y no "not p_create": con null
+    -- (llamada antigua de 2 argumentos) hay que seguir creando.
+    if p_create is false then
+      return jsonb_build_object('error', 'cuenta_no_existe');
+    end if;
+
     -- El filtro de apodos se aplica solo al CREAR. Comprobarlo también
     -- al entrar dejaría a una cuenta antigua con nombre ofensivo sin
     -- acceso a su propio progreso; para esas, la barrera está en
@@ -436,7 +473,20 @@ begin
 end;
 $$;
 
+-- Compatibilidad con las apps ya instaladas, que llevan el JS
+-- empaquetado y siguen llamando con 2 argumentos. Delega con
+-- p_create = null, es decir el comportamiento de siempre: crear la
+-- cuenta si el nombre no existe. Eliminar cuando el parque de
+-- instalaciones esté actualizado.
+create or replace function public.auth_account(p_name text, p_pin text)
+returns jsonb
+language sql
+as $$
+  select public.auth_account(p_name, p_pin, null::boolean);
+$$;
+
 grant execute on function public.auth_account(text, text) to anon;
+grant execute on function public.auth_account(text, text, boolean) to anon;
 grant execute on function public.sync_account(text, text, int, jsonb, text) to anon;
 grant execute on function public.delete_account(text, text) to anon;
 

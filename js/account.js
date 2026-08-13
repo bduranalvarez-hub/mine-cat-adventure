@@ -104,15 +104,17 @@ const Account = (() => {
     Skins.replaceOwned(remote.skinsOwned, remote.activeSkin);
   }
 
-  // Inicia sesión o crea la cuenta si el nombre no existe. Devuelve
-  // { ok: true } o { ok: false, code, retryAfter? } con el motivo
-  // (pin_invalido, pin_incorrecto, nombre_invalido, cuenta_bloqueada,
+  // Inicia sesión o crea la cuenta. create declara la intención:
+  // true = registrarse, false = ingresar (ver Remote.authAccount).
+  // Devuelve { ok: true } o { ok: false, code, retryAfter? } con el
+  // motivo (pin_invalido, pin_incorrecto, nombre_invalido,
+  // nombre_ya_existe, cuenta_no_existe, cuenta_bloqueada,
   // sin_conexion). cuenta_bloqueada viene tras 5 PIN incorrectos
   // seguidos y trae retryAfter con los segundos de espera.
-  async function login(name, pin) {
+  async function login(name, pin, create) {
     if (!remoteEnabled()) return { ok: false, code: 'sin_conexion' };
     try {
-      const remote = await Remote.authAccount(name, pin);
+      const remote = await Remote.authAccount(name, pin, create);
       // Dueño previo del progreso local: el marcador guardado o, si no
       // existe (partidas anteriores a esta versión), la cuenta que
       // estaba vinculada; sin ninguna de las dos, era de un invitado.

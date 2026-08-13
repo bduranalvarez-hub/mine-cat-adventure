@@ -93,13 +93,17 @@ const Remote = (() => {
   // por intentos fallidos, nombre/PIN inválido) llegan del servidor
   // como { error, retryAfter? } en vez de un código HTTP de error,
   // así que se relanzan como excepción con esos mismos datos.
-  async function authAccount(name, pin) {
+  // create declara la intención: true = registrarse (falla si el nombre
+  // ya existe), false = ingresar (falla si la cuenta no existe). Así el
+  // servidor devuelve el error correcto en vez de adivinar, y un nombre
+  // mal tecleado deja de convertirse en una cuenta nueva y vacía.
+  async function authAccount(name, pin, create) {
     if (!enabled()) return null;
     const res = await withTimeout((signal) =>
       fetch(`${RemoteConfig.url}/rest/v1/rpc/auth_account`, {
         method: 'POST',
         headers: headers(),
-        body: JSON.stringify({ p_name: name, p_pin: pin }),
+        body: JSON.stringify({ p_name: name, p_pin: pin, p_create: create }),
         signal,
       })
     );

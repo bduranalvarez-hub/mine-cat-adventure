@@ -385,6 +385,17 @@ body {
   color: #e8c9a0;
 }
 
+/* Encabezado del panel de login: dice si se esta CREANDO una cuenta o
+   entrando a una existente, para que el formulario no sea ambiguo. */
+.login-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #ffd76a;
+  text-align: center;
+}
+
 #nick {
   pointer-events: auto;
   width: min(70vw, 280px);

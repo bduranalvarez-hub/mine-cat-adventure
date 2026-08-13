@@ -19,8 +19,24 @@
     <span id="distance">0 m</span>
   </div>
 
+  <!-- Pantalla previa: separa REGISTRARSE de INGRESAR. Antes ambas
+       cosas pasaban por el mismo formulario, así que un nombre mal
+       tecleado creaba una cuenta nueva y vacía en vez de dar error.
+       Reutiliza las clases del panel de login: no necesita estilos
+       propios. -->
+  <div id="welcome" class="overlay login-bg hidden">
+    <div class="login-panel">
+      <p class="login-label" data-i18n="welcomeLabel">Bienvenido a la mina</p>
+      <button id="btn-go-create" class="mode-btn" data-i18n="btnCreateAccount">CREAR CUENTA</button>
+      <button id="btn-go-login" class="mode-btn" data-i18n="btnHaveAccount">YA TENGO CUENTA</button>
+      <button id="btn-guest" class="link-btn" data-i18n="btnGuest">🎮 Jugar como invitado</button>
+      <button id="btn-lang-welcome" class="link-btn lang-toggle" data-i18n="langBtn">🌐 Idioma: Español</button>
+    </div>
+  </div>
+
   <div id="login" class="overlay login-bg hidden">
     <div class="login-panel">
+      <h2 id="login-title" class="login-title" data-i18n="loginTitleEnter">Entra a tu cuenta</h2>
       <label class="login-label" for="nick" data-i18n="loginLabel">¿Cómo te llamas, minero?</label>
       <input id="nick" type="text" maxlength="14" autocomplete="off"
              spellcheck="false" data-i18n-ph="nickPlaceholder" placeholder="Tu nombre" />
@@ -28,8 +44,7 @@
              data-i18n-ph="pinPlaceholder" placeholder="Clave (mín. 4 dígitos)" />
       <p id="login-error" class="login-error hidden"></p>
       <button id="btn-login" class="mode-btn" data-i18n="btnLogin">ENTRAR A LA MINA</button>
-      <button id="btn-guest" class="link-btn" data-i18n="btnGuest">🎮 Jugar como invitado</button>
-      <button id="btn-lang-login" class="link-btn lang-toggle" data-i18n="langBtn">🌐 Idioma: Español</button>
+      <button id="btn-login-back" class="link-btn" data-i18n="back">VOLVER</button>
     </div>
   </div>
 

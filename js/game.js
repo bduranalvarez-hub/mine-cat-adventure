@@ -68,6 +68,9 @@ const Game = (() => {
 
   let rankTab = 'normal';
 
+  // Modo del panel de credenciales: 'create' | 'login' | 'guest'.
+  let authMode = 'login';
+
   // Marca de tiempo hasta la que hay que tragarse el "click" sintetizado
   // que sigue a un toque en un botón (ver wireButton y el listener de
   // captura en setup). Evita el "ghost click" que dispararía un botón
@@ -78,7 +81,8 @@ const Game = (() => {
     canvas = canvasEl;
     ctx = canvas.getContext('2d');
     [
-      'hud', 'distance', 'menu', 'login', 'ranking', 'rank-list', 'rank-status',
+      'hud', 'distance', 'menu', 'login', 'welcome', 'login-title',
+      'ranking', 'rank-list', 'rank-status',
       'gameover', 'go-title', 'go-distance', 'go-record', 'go-best',
       'go-retry', 'go-menu', 'go-share', 'go-buttons', 'go-coins',
       'best-normal', 'best-hard', 'best-hardcore',
@@ -144,10 +148,15 @@ const Game = (() => {
     wireButton('btn-hardcore', () => start('hardcore'));
     wireButton('go-menu', showMenu);
     wireButton('go-share', shareScore);
-    wireButton('btn-login', doLogin);
-    wireButton('btn-guest', doGuest);
-    wireButton('btn-logout', showLogin);
-    wireButton('btn-link-account', showLogin);
+    // El botón principal del panel sirve a los tres modos: en 'guest'
+    // no hay PIN que validar, solo el nombre.
+    wireButton('btn-login', () => (authMode === 'guest' ? doGuest() : doLogin()));
+    wireButton('btn-go-create', () => showLogin('create'));
+    wireButton('btn-go-login', () => showLogin('login'));
+    wireButton('btn-guest', () => showLogin('guest'));
+    wireButton('btn-login-back', showWelcome);
+    wireButton('btn-logout', showWelcome);
+    wireButton('btn-link-account', showWelcome);
     wireButton('btn-ranking', () => showRanking(Modes.get().key));
     wireButton('btn-rank-back', showMenu);
     wireButton('btn-shop', showShop);
@@ -164,10 +173,13 @@ const Game = (() => {
     wireButton('btn-lang', () => I18n.toggle());
     // La recompensa por anuncio aún no está implementada: solo avisa.
     wireButton('btn-add-coins', () => window.alert(I18n.t('comingSoon')));
-    wireButton('btn-lang-login', () => I18n.toggle());
+    wireButton('btn-lang-welcome', () => I18n.toggle());
     dom.nick.addEventListener('keydown', (event) => {
       event.stopPropagation();
-      if (event.key === 'Enter') dom.pin.focus();
+      // Como invitado no hay campo de PIN al que saltar: Enter confirma.
+      if (event.key !== 'Enter') return;
+      if (authMode === 'guest') doGuest();
+      else dom.pin.focus();
     });
     dom.pin.addEventListener('keydown', (event) => {
       event.stopPropagation();
@@ -184,7 +196,7 @@ const Game = (() => {
     if (Leaderboard.getPlayer()) {
       showMenu();
     } else {
-      showLogin();
+      showWelcome();
     }
     Background.reset(viewW, viewH);
   }
@@ -395,16 +407,49 @@ const Game = (() => {
   }
 
   // --- Login y ranking ---------------------------------------------------
-  function showLogin() {
+
+  // Pantalla previa: elegir entre crear cuenta, ingresar o jugar de
+  // invitado. Antes las dos primeras compartían un único formulario, y
+  // el servidor tenía que adivinar la intención: un nombre mal tecleado
+  // no daba error, daba una cuenta nueva y vacía.
+  function showWelcome() {
     state = createState(MODES.MENU);
     dom.menu.classList.add('hidden');
     dom.ranking.classList.add('hidden');
     dom.shop.classList.add('hidden');
     dom.gameover.classList.add('hidden');
     dom.hud.classList.add('hidden');
-    dom.nick.value = Leaderboard.getPlayer();
+    dom.login.classList.add('hidden');
+    dom.welcome.classList.remove('hidden');
+  }
+
+  // mode: 'create' | 'login' | 'guest'. Además del título, decide la
+  // intención que se le declara al servidor (ver Account.login), que es
+  // de donde salen los errores "ese nombre ya está ocupado" y "no existe
+  // una cuenta con ese nombre".
+  function showLogin(mode) {
+    authMode = mode;
+    const guest = mode === 'guest';
+    const titleKey = guest ? 'loginTitleGuest'
+      : (mode === 'create' ? 'loginTitleCreate' : 'loginTitleEnter');
+    const actionKey = guest ? 'btnGuestPlay' : 'btnLogin';
+
+    // Se actualiza el atributo además del texto: I18n.apply() lo relee
+    // al cambiar de idioma, así el título no revierte al del otro modo.
+    dom['login-title'].setAttribute('data-i18n', titleKey);
+    dom['login-title'].textContent = I18n.t(titleKey);
+    dom['btn-login'].setAttribute('data-i18n', actionKey);
+    dom['btn-login'].textContent = I18n.t(actionKey);
+
+    // El invitado no tiene cuenta, así que no hay PIN que pedirle.
+    dom.pin.classList.toggle('hidden', guest);
     dom.pin.value = '';
+    // Al crear cuenta se parte de un campo vacío: rellenarlo con el
+    // nombre anterior invita a repetirlo, y ese nombre ya está tomado.
+    dom.nick.value = mode === 'login' ? Leaderboard.getPlayer() : '';
     dom['login-error'].classList.add('hidden');
+
+    dom.welcome.classList.add('hidden');
     dom.login.classList.remove('hidden');
   }
 
@@ -428,6 +473,7 @@ const Game = (() => {
   function enterMenu() {
     dom.pin.value = '';
     dom.login.classList.add('hidden');
+    dom.welcome.classList.add('hidden');
     Music.start(Modes.NORMAL.musicTempo);
     showMenu();
   }
@@ -445,7 +491,7 @@ const Game = (() => {
     }
     dom['login-error'].classList.add('hidden');
     dom['btn-login'].disabled = true;
-    const result = await Account.login(name, pin);
+    const result = await Account.login(name, pin, authMode === 'create');
     dom['btn-login'].disabled = false;
     if (!result.ok) {
       if (result.code === 'cuenta_bloqueada') {
@@ -456,6 +502,8 @@ const Game = (() => {
           pin_incorrecto: 'errPinIncorrecto',
           pin_invalido: 'errPinInvalido',
           nombre_invalido: 'errNombreInvalido',
+          nombre_ya_existe: 'errNombreYaExiste',
+          cuenta_no_existe: 'errCuentaNoExiste',
         }[result.code] || 'errSinConexion';
         dom['login-error'].textContent = I18n.t(key);
       }
@@ -599,6 +647,7 @@ const Game = (() => {
     dom.ranking.classList.add('hidden');
     dom.shop.classList.add('hidden');
     dom.login.classList.add('hidden');
+    dom.welcome.classList.add('hidden');
     dom.hud.classList.add('hidden');
     dom['player-name'].textContent = Leaderboard.getPlayer();
     dom['guest-notice'].classList.toggle('hidden', Account.isLinked());
