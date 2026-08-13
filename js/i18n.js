@@ -38,6 +38,10 @@ const I18n = (() => {
       rankLocal: '📱 Ranking local (este dispositivo)',
       rankLoading: '🌍 Cargando ranking mundial…',
       rankWorld: '🌍 Ranking mundial',
+    // El invitado puede MIRAR el mundial, pero no entra en él: su marca
+    // no se puede autenticar. Se le dice, en vez de dejarlo pensando
+    // que su récord se perdió.
+    rankWorldGuest: '🌍 Ranking mundial · crea una cuenta para aparecer',
       rankOffline: '📱 Sin conexión: ranking local',
       rankEmpty: 'Aún no hay marcas en este modo. ¡Sé el primero!',
       nameNotAllowed: 'Ese nombre no está permitido',
@@ -127,6 +131,7 @@ const I18n = (() => {
       rankLocal: '📱 Local ranking (this device)',
       rankLoading: '🌍 Loading world ranking…',
       rankWorld: '🌍 World ranking',
+    rankWorldGuest: '🌍 World ranking · create an account to appear',
       rankOffline: '📱 Offline: local ranking',
       rankEmpty: 'No scores yet in this mode. Be the first!',
       nameNotAllowed: 'That name is not allowed',

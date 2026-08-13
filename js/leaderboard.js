@@ -58,7 +58,9 @@ const Leaderboard = (() => {
   }
 
   // Guarda solo la mejor marca de cada jugador por modo (local) y, si
-  // hay backend, la envía al ranking mundial sin bloquear el juego.
+  // hay backend Y cuenta vinculada, la envía al ranking mundial sin
+  // bloquear el juego. El ranking LOCAL se guarda siempre, también para
+  // el invitado: lo que exige cuenta es aparecer en el mundial.
   function submit(name, meters, modeKey) {
     if (!name || !Number.isFinite(meters) || meters <= 0) return;
     const list = loadAll();
@@ -72,7 +74,13 @@ const Leaderboard = (() => {
     }
     saveAll(capPerMode(list));
     if (remoteEnabled()) {
-      Remote.submit(name, Math.floor(meters), modeKey).catch(() => {});
+      // El servidor autentica la marca con el token de la cuenta y la
+      // guarda bajo su nombre canónico. Sin token no hay envío: el
+      // invitado se queda con el ranking local de arriba.
+      const token = typeof Account !== 'undefined' ? Account.sessionToken() : null;
+      if (token) {
+        Remote.submit(name, token, Math.floor(meters), modeKey).catch(() => {});
+      }
     }
   }
 

@@ -537,7 +537,8 @@ const Game = (() => {
     Leaderboard.topGlobal(modeKey, 10)
       .then((entries) => {
         if (req !== rankRequest) return; // respuesta obsoleta
-        dom['rank-status'].textContent = I18n.t('rankWorld');
+        dom['rank-status'].textContent =
+          I18n.t(Account.isLinked() ? 'rankWorld' : 'rankWorldGuest');
         renderRankList(entries);
       })
       .catch(() => {

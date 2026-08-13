@@ -34,39 +34,33 @@ const Remote = (() => {
     return promiseFactory(ctrl.signal).finally(() => clearTimeout(timer));
   }
 
-  // Inserción directa: respaldo si el backend aún no tiene la función
-  // submit_score. Con la restricción única (name, mode), duplicar una
-  // marca existente falla, así que nadie sobrescribe la de otro.
-  function insertScore(name, meters, mode) {
-    return withTimeout((signal) =>
-      fetch(`${RemoteConfig.url}/rest/v1/scores`, {
-        method: 'POST',
-        headers: { ...headers(), Prefer: 'return=minimal' },
-        body: JSON.stringify({ name, meters, mode }),
-        signal,
-      })
-    ).then((r) => r.ok).catch(() => false);
-  }
-
   // Envía una puntuación vía RPC submit_score, que mantiene UNA sola
   // fila por jugador y modo (la actualiza solo si supera la anterior).
   // Así la tabla no crece sin control. El servidor valida rango y modo
   // con sus constraints.
-  async function submit(name, meters, mode) {
-    if (!enabled()) return false;
+  //
+  // Requiere el token de sesión de la cuenta: el ranking mundial es
+  // contenido público y sin autenticar cualquiera podía escribir el
+  // nombre y la distancia que quisiera con la clave anon. Los
+  // invitados no tienen token y conservan solo su ranking local.
+  //
+  // Ya no existe el respaldo por inserción directa en /rest/v1/scores:
+  // la tabla dejó de tener política de INSERT, justamente para cerrar
+  // esa vía.
+  async function submit(name, token, meters, mode) {
+    if (!enabled() || !token) return false;
     try {
       const res = await withTimeout((signal) =>
         fetch(`${RemoteConfig.url}/rest/v1/rpc/submit_score`, {
           method: 'POST',
           headers: headers(),
-          body: JSON.stringify({ p_name: name, p_meters: meters, p_mode: mode }),
+          body: JSON.stringify({
+            p_name: name, p_token: token, p_meters: meters, p_mode: mode,
+          }),
           signal,
         })
       );
-      if (res.ok) return true;
-      // La función todavía no existe (base sin migrar): respaldo.
-      if (res.status === 404) return insertScore(name, meters, mode);
-      return false;
+      return res.ok;
     } catch (err) {
       return false; // sin conexión: la marca ya quedó guardada localmente
     }

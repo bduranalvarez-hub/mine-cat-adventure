@@ -59,6 +59,12 @@ const Account = (() => {
     return link ? link.name : null;
   }
 
+  // Token de sesión de la cuenta, o null si se juega como invitado.
+  // Lo necesita Leaderboard para enviar la marca al ranking mundial.
+  function sessionToken() {
+    return link ? link.token : null;
+  }
+
   function readOwner() {
     try {
       return localStorage.getItem(KEY_OWNER);
@@ -147,18 +153,31 @@ const Account = (() => {
 
   // Canjea un código de regalo por monedas. Requiere cuenta vinculada:
   // el canje es único POR CUENTA, algo imposible de garantizar para un
-  // invitado. El servidor suma las monedas y devuelve el saldo nuevo,
-  // que se adopta localmente (setBalance solo sube, y un regalo siempre
-  // sube). Devuelve { ok: true, coins, balance } o { ok: false, code }
-  // con el motivo (no_autorizado, sin_conexion, codigo_invalido,
-  // codigo_vencido, codigo_agotado, ya_canjeado).
+  // invitado. El servidor suma las monedas SOBRE SU PROPIO saldo, que
+  // puede ir por detrás del local, así que aquí se acredita el regalo
+  // sumándolo al saldo local (ver abajo). Devuelve
+  // { ok: true, coins, balance } o { ok: false, code } con el motivo
+  // (no_autorizado, sin_conexion, codigo_invalido, codigo_vencido,
+  // codigo_agotado, ya_canjeado).
   async function redeem(code) {
     if (!link) return { ok: false, code: 'no_autorizado' };
     if (!remoteEnabled()) return { ok: false, code: 'sin_conexion' };
     try {
       const res = await Remote.redeemCode(link.name, link.token, code);
-      if (res && Number.isFinite(res.balance)) Coins.setBalance(res.balance);
-      return { ok: true, coins: res ? res.coins : 0, balance: res ? res.balance : null };
+      // Se acredita el REGALO (delta), no el saldo absoluto que devuelve
+      // el servidor: Coins.setBalance solo sube, así que si el saldo
+      // local iba por delante del remoto (se jugó sin señal y el push
+      // quedó pendiente), el absoluto se descartaba en silencio y el
+      // código quedaba consumido -por cuenta, para siempre- sin entregar
+      // nada. El delta acredita siempre.
+      const gift = res && Number.isFinite(res.coins) ? res.coins : 0;
+      if (gift > 0) {
+        Coins.add(gift);
+        // Deja el servidor con el total local real: en sync_account las
+        // monedas son autoritativas del cliente.
+        push().catch(() => {});
+      }
+      return { ok: true, coins: gift, balance: Coins.getBalance() };
     } catch (err) {
       return { ok: false, code: err && err.code ? err.code : 'sin_conexion' };
     }
@@ -169,6 +188,16 @@ const Account = (() => {
   function unlink() {
     link = null;
     persistLink();
+    // El progreso local queda sin cuenta dueña: pasa a ser del invitado.
+    // Sin esto el marcador conservaba el nombre de la cuenta anterior y,
+    // cuando ese invitado vinculaba su PROPIA cuenta nueva, sameOwner
+    // daba falso y replaceLocalState le borraba todo lo que había
+    // ganado, justo al pulsar "Vincular cuenta".
+    // El costo asumido: ese invitado se lleva también lo que quedó en el
+    // dispositivo de la cuenta anterior. Se prefiere duplicar -la cuenta
+    // anterior conserva lo suyo intacto en el servidor, no pierde nada- a
+    // borrarle el progreso a un jugador real.
+    persistOwner('guest');
   }
 
   // Registra una vista de anuncio recompensado (revivir o monedas)
@@ -204,6 +233,7 @@ const Account = (() => {
   }
 
   return {
-    isLinked, linkedName, login, push, unlink, redeem, watchAd, adStatus,
+    isLinked, linkedName, sessionToken, login, push, unlink, redeem,
+    watchAd, adStatus,
   };
 })();

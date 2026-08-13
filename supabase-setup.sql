@@ -4,6 +4,52 @@
 -- Es idempotente: seguro de volver a ejecutar sobre una base existente.
 -- ============================================================
 
+-- ============================================================
+-- Moderación de apodos EN EL SERVIDOR.
+-- js/moderation.js hace el mismo filtro en el cliente, pero eso solo
+-- sirve para dar un aviso amable al jugador: cualquiera puede llamar
+-- la API directamente con la clave anon, que es pública. El ranking
+-- mundial es contenido generado por el usuario y visible para todos,
+-- así que el filtro que cuenta es este.
+-- Mantener las dos listas en sintonía al editarlas.
+-- ============================================================
+create or replace function public.is_name_allowed(p_name text)
+returns boolean
+language plpgsql
+immutable
+as $$
+declare
+  -- Misma lista que BLOCKLIST en js/moderation.js.
+  v_blocked text[] := array[
+    'puta', 'puto', 'mierda', 'pendejo', 'gilipollas', 'cabron', 'zorra',
+    'maricon', 'negrodemierda', 'violador', 'nazi', 'hitler',
+    'fuck', 'shit', 'bitch', 'asshole', 'nigger', 'faggot', 'rape', 'cunt'
+  ];
+  v_norm text;
+  v_word text;
+begin
+  -- Normaliza igual que el cliente: sin acentos, minúsculas y solo
+  -- letras/números, para que no baste con "p.u.t.o" o "PÚTO".
+  v_norm := regexp_replace(
+    lower(translate(
+      coalesce(p_name, ''),
+      'áàäâãéèëêíìïîóòöôõúùüûñçÁÀÄÂÃÉÈËÊÍÌÏÎÓÒÖÔÕÚÙÜÛÑÇ',
+      'aaaaaeeeeiiiiooooouuuuncAAAAAEEEEIIIIOOOOOUUUUNC'
+    )),
+    '[^a-z0-9]', '', 'g'
+  );
+  if v_norm = '' then
+    return false;
+  end if;
+  foreach v_word in array v_blocked loop
+    if position(v_word in v_norm) > 0 then
+      return false;
+    end if;
+  end loop;
+  return true;
+end;
+$$;
+
 -- Tabla de puntuaciones. Los CHECK validan los datos EN EL SERVIDOR:
 -- nadie puede insertar un modo inválido, un nombre larguísimo ni una
 -- distancia absurda, aunque manipule el cliente.
@@ -44,27 +90,59 @@ drop policy if exists "lectura publica" on public.scores;
 create policy "lectura publica" on public.scores
   for select using (true);
 
--- Inserción directa permitida (respaldo del cliente). Con la
--- restricción única, un intento de duplicar (name, mode) falla, así
--- que nadie puede sobrescribir la marca de otro por esta vía. NO hay
--- políticas de UPDATE ni DELETE: quedan prohibidas para el cliente.
+-- NO hay política de INSERT, UPDATE ni DELETE: el cliente no escribe
+-- en esta tabla por ninguna vía directa. La inserción libre que había
+-- antes permitía a cualquiera con la clave anon (que es pública, va en
+-- el bundle) publicar el nombre y la distancia que quisiera. Todo pasa
+-- ahora por submit_score, que exige el token de la cuenta.
 drop policy if exists "insertar puntuacion" on public.scores;
-create policy "insertar puntuacion" on public.scores
-  for insert with check (true);
 
 -- Enviar puntuación: inserta o ACTUALIZA solo si supera la marca
 -- previa del jugador en ese modo. SECURITY DEFINER para poder hacer
 -- el upsert sin abrir una política de UPDATE al cliente. Los CHECK de
 -- la tabla siguen validando los datos.
-create or replace function public.submit_score(p_name text, p_meters int, p_mode text)
+--
+-- Exige el token de sesión de la cuenta (el mismo de sync_account).
+-- La marca se guarda SIEMPRE con el nombre canónico de la cuenta que
+-- autentica, nunca con el que llega en p_name: así un jugador con
+-- sesión válida tampoco puede escribir en la fila de otro.
+--
+-- Los invitados no tienen cuenta y por lo tanto no entran al ranking
+-- mundial; conservan su ranking local en el dispositivo.
+--
+-- IMPORTANTE: se ELIMINA la versión de 3 argumentos. Un create or
+-- replace con la firma nueva dejaría viva la vieja (sin token), que
+-- sigue concedida a anon y reabre el agujero entero.
+drop function if exists public.submit_score(text, int, text);
+
+create or replace function public.submit_score(
+  p_name text, p_token text, p_meters int, p_mode text
+)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_name text;
 begin
+  select a.name into v_name
+    from public.accounts a
+    where a.name_lower = lower(coalesce(p_name, ''))
+      and a.session_token = p_token;
+  if v_name is null then
+    raise exception 'no_autorizado';
+  end if;
+
+  -- Segunda barrera: una cuenta creada ANTES de que existiera el filtro
+  -- del servidor puede tener un apodo ofensivo. Que siga jugando, pero
+  -- no llega a la tabla pública.
+  if not public.is_name_allowed(v_name) then
+    return;
+  end if;
+
   insert into public.scores (name, meters, mode)
-  values (p_name, p_meters, p_mode)
+  values (v_name, p_meters, p_mode)
   on conflict ((lower(name)), mode)
   do update set meters = excluded.meters, created_at = now()
   where excluded.meters > public.scores.meters;
@@ -85,7 +163,7 @@ as $$
 $$;
 
 -- Permite llamar las funciones a usuarios anónimos (el juego).
-grant execute on function public.submit_score(text, int, text) to anon;
+grant execute on function public.submit_score(text, text, int, text) to anon;
 grant execute on function public.top_scores(text, int) to anon;
 
 -- ============================================================
@@ -211,6 +289,13 @@ begin
         returning * into v_row;
     end if;
   else
+    -- El filtro de apodos se aplica solo al CREAR. Comprobarlo también
+    -- al entrar dejaría a una cuenta antigua con nombre ofensivo sin
+    -- acceso a su propio progreso; para esas, la barrera está en
+    -- submit_score (no llegan al ranking público, pero siguen jugando).
+    if not public.is_name_allowed(v_name) then
+      return jsonb_build_object('error', 'nombre_invalido');
+    end if;
     insert into public.accounts (name, pin_hash, session_token)
     values (v_name, crypt(p_pin, gen_salt('bf')), gen_random_uuid()::text)
     returning * into v_row;

@@ -54,7 +54,12 @@
            recortados aunque la ilustración desborde en móvil. -->
       <button id="btn-add-coins" class="coin-pill2"
               style="left:calc(max(2.5cqw, 50cqw - 50vw + 10px));top:max(2.1cqw, env(safe-area-inset-top));height:4.7%">
-        <span>🪙</span><span id="menu-coin-balance">0</span><span class="plus">+</span>
+        <!-- El "+" vuelve aquí cuando se conecte el anuncio recompensado
+             (el backend ya existe: record_ad_watch / get_ad_status).
+             Mientras la recompensa no esté implementada, la insignia no
+             promete una acción que no ocurre: solo muestra el saldo y,
+             al tocarla, avisa "próximamente". -->
+        <span>🪙</span><span id="menu-coin-balance">0</span>
       </button>
       <button id="btn-lang" class="icon-btn2"
               style="right:calc(max(2cqw, 50cqw - 50vw + 10px));top:max(1.9cqw, env(safe-area-inset-top))">🌐</button>
