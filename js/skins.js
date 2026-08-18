@@ -52,6 +52,12 @@ const Skins = (() => {
     // Rara
     { id: 'esqueleto', nameKey: 'skinEsqueleto', src: 'img/skin-esqueleto.png', rarity: 'rara', renderW: 112, dx: 0, dy: 0, front: true },
     { id: 'robot', nameKey: 'skinRobot', src: 'img/skin-robot.png', rarity: 'rara', renderW: 126, dx: 0, dy: 0, front: true },
+    // Épica — NO se compra con monedas: se desbloquea viendo anuncios.
+    // El id es el que otorga el servidor en record_ad_watch al llegar a
+    // las 100 vistas (ver supabase-ad-tracking.sql); si se cambia aquí,
+    // el desbloqueo deja de reconocerse. renderW mayor que el resto
+    // porque el recorte incluye alas y cola, no solo la cabeza.
+    { id: 'ads_epica', nameKey: 'skinDragon', src: 'img/skin-dragon.png', rarity: 'epica', unlockBy: 'ads', renderW: 160, dx: 0, dy: 0, front: true },
     // Legendaria
     { id: 'gatoreal', nameKey: 'skinGatoreal', src: 'img/skin-gatoreal.png', rarity: 'legendaria', renderW: 118, dx: 6, dy: 0 },
   ];

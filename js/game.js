@@ -68,6 +68,35 @@ const Game = (() => {
 
   let rankTab = 'normal';
 
+  // Último estado conocido de anuncios vistos, tal como lo lleva el
+  // SERVIDOR (record_ad_watch). null mientras no haya cuenta vinculada
+  // o no haya llegado la respuesta. Solo sirve para pintar el avance de
+  // la skin épica: el desbloqueo real lo decide el servidor.
+  let adStatus = null;
+
+  // ¿Hay anuncios recompensados disponibles? Requieren el SDK nativo de
+  // AdMob, que solo existe en la app compilada (no en web/PWA) y que
+  // todavía no está integrado. Hasta entonces esto es false y la tienda
+  // lo dice, en vez de mostrar un contador congelado sin explicación.
+  function adsAvailable() {
+    return typeof Ads !== 'undefined' && Ads.available();
+  }
+
+  function refreshAdStatus() {
+    if (typeof Account === 'undefined' || !Account.isLinked()) {
+      adStatus = null;
+      return;
+    }
+    Account.adStatus().then((s) => {
+      if (!s) return;
+      adStatus = s;
+      // Si el servidor ya dio por cumplido el desbloqueo, que la skin
+      // aparezca ahora y no en la próxima sesión.
+      if (s.total >= s.unlockAt) Skins.grant('ads_epica');
+      if (dom.shop && !dom.shop.classList.contains('hidden')) renderShop();
+    }).catch(() => {});
+  }
+
   // Modo del panel de credenciales: 'create' | 'login' | 'guest'.
   let authMode = 'login';
 
@@ -235,15 +264,7 @@ const Game = (() => {
     updateCoinsUI();
     const listEl = dom['shop-list'];
     listEl.textContent = '';
-    let epicaShown = false;
     Skins.LIST.forEach((skin) => {
-      // La rareza ÉPICA aún no tiene skins: se muestra un aviso
-      // "próximamente" en su lugar, justo antes de las legendarias.
-      if (!epicaShown && skin.rarity === 'legendaria') {
-        listEl.appendChild(makeSoonCard('epica'));
-        epicaShown = true;
-      }
-
       const rar = skin.rarity ? Skins.RARITY[skin.rarity] : null;
       const card = document.createElement('div');
       card.className = 'skin-card';
@@ -286,6 +307,23 @@ const Game = (() => {
           Account.push();
           renderShop();
         });
+      } else if (skin.unlockBy === 'ads') {
+        // No se compra con monedas: se libera al llegar al total de
+        // anuncios vistos, y de eso lleva la cuenta el SERVIDOR
+        // (record_ad_watch). Aquí solo se pinta el avance.
+        const total = adStatus ? adStatus.total : 0;
+        const meta = adStatus ? adStatus.unlockAt : 100;
+        btn.textContent = I18n.t('shopAdsProgress', { n: total, t: meta });
+        btn.disabled = true;
+        const hint = document.createElement('span');
+        hint.className = 'skin-hint';
+        // Mientras el SDK de anuncios no exista (web/PWA, o build sin
+        // AdMob), se dice claro que todavía no hay forma de avanzar:
+        // un contador congelado en 0/100 sin explicación confunde.
+        hint.textContent = adsAvailable()
+          ? I18n.t('shopAdsHint', { t: meta })
+          : I18n.t('shopAdsSoon');
+        info.appendChild(hint);
       } else {
         btn.textContent = I18n.t('shopBuy', { n: skin.price });
         const affordable = Coins.getBalance() >= skin.price;
@@ -311,32 +349,6 @@ const Game = (() => {
     updateRedeemUI();
   }
 
-  // Tarjeta "próximamente" para una rareza sin skins todavía (épica).
-  function makeSoonCard(rarityKey) {
-    const rar = Skins.RARITY[rarityKey];
-    const card = document.createElement('div');
-    card.className = 'skin-card skin-card-soon';
-    card.style.setProperty('--rarity', rar.color);
-
-    const q = document.createElement('div');
-    q.className = 'skin-thumb skin-thumb-soon';
-    q.textContent = '?';
-
-    const info = document.createElement('div');
-    info.className = 'skin-info';
-    const soon = document.createElement('span');
-    soon.className = 'skin-name';
-    soon.textContent = I18n.t('shopSoon');
-    const badge = document.createElement('span');
-    badge.className = 'skin-rarity';
-    badge.textContent = I18n.t(rar.nameKey);
-    badge.style.color = rar.color;
-    badge.style.borderColor = rar.color;
-    info.append(soon, badge);
-
-    card.append(q, info);
-    return card;
-  }
 
   // Muestra (o limpia) el mensaje del canje. kind: 'ok' | 'err'.
   function setRedeemStatus(key, kind, params) {
@@ -402,6 +414,7 @@ const Game = (() => {
     dom.menu.classList.add('hidden');
     setRedeemStatus(null);
     dom['redeem-input'].value = '';
+    refreshAdStatus();
     renderShop();
     dom.shop.classList.remove('hidden');
   }

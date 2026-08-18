@@ -771,3 +771,11 @@ body {
     transform: scale(1);
   }
 }
+
+/* Línea de ayuda bajo el nombre de una skin (p. ej. cómo se desbloquea
+   la épica, que no se compra con monedas sino viendo anuncios). */
+.skin-hint {
+  font-size: 10px;
+  line-height: 1.3;
+  color: #a98a63;
+}
