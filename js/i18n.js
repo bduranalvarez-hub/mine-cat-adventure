@@ -114,6 +114,10 @@ const I18n = (() => {
       redeemErrVencido: 'Ese código ya venció',
       redeemErrAgotado: 'Ese código se agotó',
       redeemErrYaCanjeado: 'Ya canjeaste este código',
+      updateAndroid: 'Hay una versión nueva ({v}). Actualiza para no perderte las novedades.',
+      updateWeb: 'Hay una versión nueva ({v}) del juego.',
+      updateBtnPlay: 'ACTUALIZAR',
+      updateBtnReload: 'RECARGAR',
     },
     en: {
       subtitle: 'A sphynx, a mine cart, an endless mine',
@@ -217,6 +221,10 @@ const I18n = (() => {
       redeemErrVencido: 'That code has expired',
       redeemErrAgotado: 'That code is used up',
       redeemErrYaCanjeado: 'You already redeemed this code',
+      updateAndroid: 'A new version ({v}) is available. Update so you do not miss out.',
+      updateWeb: 'A new version ({v}) of the game is available.',
+      updateBtnPlay: 'UPDATE',
+      updateBtnReload: 'RELOAD',
     },
   };
 
@@ -261,6 +269,10 @@ const I18n = (() => {
     });
     document.documentElement.lang = lang;
     if (typeof onChange === 'function') onChange();
+    // Evento aparte para los textos que no viven en el juego (p. ej. el
+    // aviso de version nueva): setOnChange solo admite UN callback y ya
+    // lo usa game.js para sus textos dinamicos.
+    document.dispatchEvent(new CustomEvent('mca-lang-change'));
   }
 
   function setLang(next) {

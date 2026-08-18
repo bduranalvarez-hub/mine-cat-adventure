@@ -3,7 +3,7 @@
 // Service worker: estrategia red-primero con respaldo en caché.
 // Online siempre sirve la última versión; offline sirve la copia
 // guardada. Sube CACHE_VERSION al publicar cambios importantes.
-const CACHE_VERSION = 'mca-v42';
+const CACHE_VERSION = 'mca-v43';
 
 const ASSETS = [
   './',
@@ -72,6 +72,9 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+  // El manifiesto de version se consulta SIEMPRE contra la red: si se
+  // sirviera desde cache, el aviso de actualizacion nunca aparaceria.
+  if (url.pathname.endsWith('/version.json')) return;
 
   event.respondWith(
     fetch(event.request)

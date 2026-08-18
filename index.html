@@ -15,6 +15,14 @@
 <body>
   <canvas id="game"></canvas>
 
+  <!-- Aviso de version nueva. Oculto salvo que version.json publique un
+       build mayor que el de esta copia (ver js/version.js). -->
+  <div id="update-banner" class="update-banner hidden">
+    <span id="update-text" class="update-text"></span>
+    <button id="update-action" class="update-btn"></button>
+    <button id="update-close" class="update-close" aria-label="Cerrar">✕</button>
+  </div>
+
   <div id="hud" class="hidden">
     <span id="distance">0 m</span>
   </div>
@@ -156,6 +164,7 @@
   <script src="js/track.js"></script>
   <script src="js/obstacles.js"></script>
   <script src="js/player.js"></script>
+  <script src="js/version.js"></script>
   <script src="js/game.js"></script>
   <script src="js/main.js"></script>
 </body>
