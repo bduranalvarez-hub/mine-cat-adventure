@@ -46,6 +46,10 @@ const Game = (() => {
       deathTimer: 0,
       cause: null,
       isRecord: false,
+      // La partida ya se cobró (récord, monedas, ranking). Ver
+      // settleRun(): el choque y el fin de la partida son momentos
+      // distintos desde que existe "revivir viendo un anuncio".
+      settled: false,
       best: loadBest(Modes.get().storageKey),
       player: Player.create(),
       track: Track.create(),
@@ -214,6 +218,14 @@ const Game = (() => {
       event.stopPropagation();
       if (event.key === 'Enter') doLogin();
     });
+
+    // Si la app se va a segundo plano o se cierra con una partida ya
+    // perdida pero sin cerrar, se liquida ahí mismo (ver settleIfDead):
+    // el bucle se detiene y esa carrera se quedaría sin cobrar.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') settleIfDead();
+    });
+    window.addEventListener('pagehide', settleIfDead);
 
     // Al cambiar de idioma, refresca los textos que se generan por
     // código (no cubiertos por data-i18n).
@@ -696,10 +708,19 @@ const Game = (() => {
     dom.distance.textContent = '0 m';
   }
 
-  function die(cause) {
-    state.mode = MODES.DEAD;
-    state.cause = cause;
-    state.deathTimer = 0;
+  // Cierra la partida: récord, monedas y envío al ranking. Se ejecuta
+  // UNA sola vez (state.settled). Está separado de die() a propósito:
+  // con "revivir viendo un anuncio" el choque ya NO es el final de la
+  // carrera. Si se cobrara ahí, revivir y volver a morir pagaría dos
+  // veces la misma partida (y la segunda vez contando de nuevo desde
+  // el metro 0). Ahora se cobra cuando la partida se acaba de verdad.
+  //
+  // Cobrar al final también es lo correcto para el jugador: la
+  // distancia que cuenta es la total, incluida la parte posterior al
+  // revivir, y el tope diario de monedas se aplica una sola vez.
+  function settleRun() {
+    if (!state || state.settled) return;
+    state.settled = true;
 
     const finalMeters = meters();
     if (finalMeters > state.best) {
@@ -710,6 +731,22 @@ const Game = (() => {
     state.coinResult = Coins.earnFromRun(finalMeters, Modes.get().coinMultiplier);
     Leaderboard.submit(Leaderboard.getPlayer(), finalMeters, Modes.get().key);
     if (state.coinResult.earned > 0) Account.push();
+  }
+
+  // Red de seguridad: si el jugador manda la app a segundo plano o la
+  // cierra entre el choque y el cierre de la partida, el bucle se
+  // detiene y la carrera se quedaría sin cobrar. Solo liquida si ya
+  // estaba muerto; en pleno juego no hay nada que cerrar.
+  function settleIfDead() {
+    if (state && state.mode === MODES.DEAD) settleRun();
+  }
+
+  // Choque o caída. NO cierra la partida ni paga: de eso se encarga
+  // settleRun() cuando ya no hay vuelta atrás.
+  function die(cause) {
+    state.mode = MODES.DEAD;
+    state.cause = cause;
+    state.deathTimer = 0;
 
     if (cause === 'crash') {
       state.player.onRail = false;
@@ -893,6 +930,9 @@ const Game = (() => {
       state.player.tilt += 5 * dt;
     }
     if (state.deathTimer > 0.9 && dom.gameover.classList.contains('hidden')) {
+      // Aquí ya no hay vuelta atrás (cuando exista el botón de revivir,
+      // este es el punto donde el jugador habrá dicho que no).
+      settleRun();
       showGameOver();
     }
     if (state.deathTimer > 1.1) {
