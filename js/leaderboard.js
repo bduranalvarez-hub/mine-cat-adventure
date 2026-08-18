@@ -57,26 +57,37 @@ const Leaderboard = (() => {
     return out;
   }
 
-  // Guarda solo la mejor marca de cada jugador por modo (local) y, si
-  // hay backend Y cuenta vinculada, la envía al ranking mundial sin
-  // bloquear el juego. El ranking LOCAL se guarda siempre, también para
-  // el invitado: lo que exige cuenta es aparecer en el mundial.
+  // Guarda la mejor marca de cada jugador por modo en el ranking LOCAL
+  // (también para el invitado) y, si hay backend Y cuenta vinculada, la
+  // envía al ranking mundial sin bloquear el juego.
+  //
+  // Las dos rutas son INDEPENDIENTES a propósito: el ranking local y el
+  // del servidor pueden estar desincronizados, así que una marca que no
+  // mejora la copia local igual tiene que viajar. Antes un único
+  // "return" cortaba la función cuando no había récord local y, de
+  // paso, cancelaba el envío: tras reiniciar el ranking mundial el
+  // récord local seguía en el dispositivo y el jugador desaparecía del
+  // mundial hasta superarse a sí mismo.
   function submit(name, meters, modeKey) {
     if (!name || !Number.isFinite(meters) || meters <= 0) return;
+
+    // 1) Ranking local: solo se reescribe si mejora la marca guardada.
     const list = loadAll();
     const existing = list.find((e) => e.name === name && e.mode === modeKey);
-    if (existing) {
-      if (meters <= existing.meters) return;
+    if (!existing) {
+      list.push({ name, meters, mode: modeKey, date: Date.now() });
+      saveAll(capPerMode(list));
+    } else if (meters > existing.meters) {
       existing.meters = meters;
       existing.date = Date.now();
-    } else {
-      list.push({ name, meters, mode: modeKey, date: Date.now() });
+      saveAll(capPerMode(list));
     }
-    saveAll(capPerMode(list));
+
+    // 2) Ranking mundial: SIEMPRE se intenta. Enviar de más es inocuo
+    // porque submit_score solo sobrescribe si la marca nueva supera a
+    // la guardada en el servidor. Sin token no hay envío: el invitado
+    // se queda con el ranking local de arriba.
     if (remoteEnabled()) {
-      // El servidor autentica la marca con el token de la cuenta y la
-      // guarda bajo su nombre canónico. Sin token no hay envío: el
-      // invitado se queda con el ranking local de arriba.
       const token = typeof Account !== 'undefined' ? Account.sessionToken() : null;
       if (token) {
         Remote.submit(name, token, Math.floor(meters), modeKey).catch(() => {});
