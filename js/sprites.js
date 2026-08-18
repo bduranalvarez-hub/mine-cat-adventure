@@ -261,7 +261,13 @@ const Sprites = (() => {
   function wreckSprite(variant) {
     const lean = variant === 0 ? 0.22 : variant === 1 ? -0.18 : 0.08;
     return bake(`wreck-${variant}`, 130, 90, 65, 78, (b) => {
-      const wood = { light: '#5f584c', dark: '#4a443a' };
+      // Óxido rojizo, NO gris-marrón. El vagón averiado es el obstáculo
+      // que hay que ver con tiempo, y desde el nivel PLATA la pared de
+      // la mina es gris/blanca/azul: la paleta vieja (#5f584c/#4a443a)
+      // coincidía con ella en tono Y en valor, así que se perdía de
+      // vista. El naranja-rojo es el único tono que contrasta contra los
+      // tres minerales problemáticos a la vez, sin salirse del arte.
+      const wood = { light: '#a8532a', dark: '#7d3a1c' };
 
       // Sombra en la base.
       b.fillStyle = 'rgba(0, 0, 0, 0.3)';
@@ -320,12 +326,12 @@ const Sprites = (() => {
       b.fillRect(-4, -22, 9, 26);
       b.restore();
 
-      b.strokeStyle = 'rgba(25, 15, 8, 0.85)';
-      b.lineWidth = 3;
+      b.strokeStyle = '#1a0a03';
+      b.lineWidth = 4.5;
       b.stroke(body);
 
       // Fleje metálico oxidado y remaches caídos.
-      b.strokeStyle = '#5a4636';
+      b.strokeStyle = '#d4762f';
       b.lineWidth = 5;
       b.beginPath();
       b.moveTo(-halfTop + 6, -h / 2 + 4);
@@ -348,7 +354,7 @@ const Sprites = (() => {
       b.restore();
 
       // Piedritas y astillas alrededor de la base.
-      b.fillStyle = '#4e453d';
+      b.fillStyle = '#7d3a1c';
       [[-34, -4], [30, -3], [8, -2], [-12, -3]].forEach(([px, py]) => {
         b.beginPath();
         b.arc(px, py, 3.2, 0, Math.PI * 2);
