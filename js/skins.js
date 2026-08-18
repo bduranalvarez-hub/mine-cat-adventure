@@ -56,8 +56,10 @@ const Skins = (() => {
     // El id es el que otorga el servidor en record_ad_watch al llegar a
     // las 100 vistas (ver supabase-ad-tracking.sql); si se cambia aquí,
     // el desbloqueo deja de reconocerse. renderW mayor que el resto
-    // porque el recorte incluye alas y cola, no solo la cabeza.
-    { id: 'ads_epica', nameKey: 'skinDragon', src: 'img/skin-dragon.png', rarity: 'epica', unlockBy: 'ads', renderW: 160, dx: 0, dy: 0, front: true },
+    // porque el recorte incluye alas y cola, no solo la cabeza; 135 es
+    // el punto donde el vagon se sigue leyendo como vagon sin que el
+    // dragon pierda la silueta que justifica su rareza.
+    { id: 'ads_epica', nameKey: 'skinDragon', src: 'img/skin-dragon.png', rarity: 'epica', unlockBy: 'ads', renderW: 135, dx: 0, dy: 0, front: true },
     // Legendaria
     { id: 'gatoreal', nameKey: 'skinGatoreal', src: 'img/skin-gatoreal.png', rarity: 'legendaria', renderW: 118, dx: 6, dy: 0 },
   ];
