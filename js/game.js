@@ -96,7 +96,14 @@ const Game = (() => {
       adStatus = s;
       // Si el servidor ya dio por cumplido el desbloqueo, que la skin
       // aparezca ahora y no en la próxima sesión.
-      if (s.total >= s.unlockAt) Skins.grant('ads_epica');
+      // Otorga cualquier skin por anuncios cuyo umbral ya se haya
+      // cruzado (no solo la primera): el servidor las concede al ver el
+      // anuncio, pero si esa respuesta se perdió, esto las recupera.
+      Skins.LIST.forEach((sk) => {
+        if (sk.unlockBy === 'ads' && sk.unlockAt && s.total >= sk.unlockAt) {
+          Skins.grant(sk.id);
+        }
+      });
       if (dom.shop && !dom.shop.classList.contains('hidden')) renderShop();
     }).catch(() => {});
   }
@@ -324,7 +331,9 @@ const Game = (() => {
         // anuncios vistos, y de eso lleva la cuenta el SERVIDOR
         // (record_ad_watch). Aquí solo se pinta el avance.
         const total = adStatus ? adStatus.total : 0;
-        const meta = adStatus ? adStatus.unlockAt : 100;
+        // Umbral POR SKIN: hay varias épicas escalonadas, así que el
+        // unlockAt global que devuelve el servidor ya no alcanza.
+        const meta = skin.unlockAt || (adStatus ? adStatus.unlockAt : 100);
         btn.textContent = I18n.t('shopAdsProgress', { n: total, t: meta });
         btn.disabled = true;
         const hint = document.createElement('span');

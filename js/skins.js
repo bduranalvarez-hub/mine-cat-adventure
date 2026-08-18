@@ -59,7 +59,14 @@ const Skins = (() => {
     // porque el recorte incluye alas y cola, no solo la cabeza; 135 es
     // el punto donde el vagon se sigue leyendo como vagon sin que el
     // dragon pierda la silueta que justifica su rareza.
-    { id: 'ads_epica', nameKey: 'skinDragon', src: 'img/skin-dragon.png', rarity: 'epica', unlockBy: 'ads', renderW: 135, dx: 0, dy: 0, front: true },
+    // unlockAt = vistas de anuncio necesarias. Va POR SKIN (no una
+    // constante global) para poder escalonarlas: el Dragón llega
+    // pronto y engancha, el Mago sostiene el objetivo a largo plazo.
+    // Estos números DEBEN coincidir con los del servidor
+    // (record_ad_watch en supabase-ad-tracking.sql), que es quien
+    // realmente otorga; aquí solo se pinta el avance.
+    { id: 'ads_epica', nameKey: 'skinDragon', src: 'img/skin-dragon.png', rarity: 'epica', unlockBy: 'ads', unlockAt: 100, renderW: 135, dx: 0, dy: 0, front: true },
+    { id: 'ads_epica2', nameKey: 'skinMago', src: 'img/skin-mago.png', rarity: 'epica', unlockBy: 'ads', unlockAt: 250, renderW: 140, dx: 0, dy: 0, front: true },
     // Legendaria
     { id: 'gatoreal', nameKey: 'skinGatoreal', src: 'img/skin-gatoreal.png', rarity: 'legendaria', renderW: 118, dx: 6, dy: 0 },
   ];

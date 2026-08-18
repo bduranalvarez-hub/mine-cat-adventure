@@ -214,7 +214,18 @@ const Account = (() => {
     if (!remoteEnabled()) return { ok: false, code: 'sin_conexion' };
     try {
       const res = await Remote.recordAdWatch(link.name, link.token);
-      if (res && res.epicUnlocked) Skins.grant('ads_epica');
+      // El servidor es quien concede de verdad (escribe skins_owned);
+      // aquí se refleja el resultado leyendo el total que devolvió y
+      // comparándolo con el umbral de cada skin por anuncios. Así no
+      // hay que tocar el cliente cada vez que se agregue una épica
+      // nueva: basta con declararla en Skins.LIST y en el servidor.
+      if (res && Number.isFinite(res.total)) {
+        Skins.LIST.forEach((sk) => {
+          if (sk.unlockBy === 'ads' && sk.unlockAt && res.total >= sk.unlockAt) {
+            Skins.grant(sk.id);
+          }
+        });
+      }
       return {
         ok: true,
         today: res ? res.today : 0,
