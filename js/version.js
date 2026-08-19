@@ -14,7 +14,7 @@ const Version = (() => {
   // aborta el build si divergen, porque un desajuste silencioso haría
   // que se avise de más (a quien ya está al día) o de menos (nunca).
   const LOCAL = Object.freeze({
-    webBuild: 43,
+    webBuild: 45,
     androidVersionCode: 4,
   });
 
