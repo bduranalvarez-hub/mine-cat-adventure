@@ -34,3 +34,7 @@ ios/App/App.xcworkspace/
 
 # Fuentes de diseno (fotos y arte original, no usadas por el juego)
 assets/
+
+# Informes del consejo (LLM Council): analisis, no codigo del juego
+council-report-*.html
+council-transcript-*.md
