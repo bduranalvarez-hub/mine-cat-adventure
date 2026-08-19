@@ -32,7 +32,7 @@ const Skins = (() => {
   // cuánto pagaste o cuántos anuncios viste, no de habilidad. Las monedas
   // solo aceleran la progresión propia y no se comparan entre jugadores.
   const RARITY = Object.freeze({
-    comun: { key: 'comun', nameKey: 'rarityComun', order: 1, price: 500, coinBonus: 0.05, color: '#aeb9c2' },
+    comun: { key: 'comun', nameKey: 'rarityComun', order: 1, price: 250, coinBonus: 0.05, color: '#aeb9c2' },
     rara: { key: 'rara', nameKey: 'rarityRara', order: 2, price: 1500, coinBonus: 0.10, color: '#4aa3ff' },
     epica: { key: 'epica', nameKey: 'rarityEpica', order: 3, price: 3000, coinBonus: 0.20, color: '#c56bff' },
     legendaria: { key: 'legendaria', nameKey: 'rarityLegendaria', order: 4, price: 5000, coinBonus: 0.30, color: '#ffb020' },
