@@ -838,3 +838,23 @@ body {
   font-family: inherit;
   cursor: pointer;
 }
+
+/* Fila de etiquetas de una skin (rareza + ventaja pasiva). */
+.skin-tags {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.skin-perk {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: #ffd76a;
+  border: 1px solid rgba(255, 215, 106, 0.55);
+  background: rgba(255, 215, 106, 0.10);
+  line-height: 1.4;
+}

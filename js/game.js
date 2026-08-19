@@ -302,12 +302,25 @@ const Game = (() => {
       name.textContent = I18n.t(skin.nameKey);
       info.appendChild(name);
       if (rar) {
+        const fila = document.createElement('span');
+        fila.className = 'skin-tags';
         const badge = document.createElement('span');
         badge.className = 'skin-rarity';
         badge.textContent = I18n.t(rar.nameKey);
         badge.style.color = rar.color;
         badge.style.borderColor = rar.color;
-        info.appendChild(badge);
+        fila.appendChild(badge);
+        // Ventaja pasiva de la rareza. Se muestra siempre (aunque no se
+        // tenga la skin): es parte de por qué vale la pena conseguirla.
+        if (rar.coinBonus) {
+          const perk = document.createElement('span');
+          perk.className = 'skin-perk';
+          perk.textContent = I18n.t('skinPerkCoins', {
+            n: Math.round(rar.coinBonus * 100),
+          });
+          fila.appendChild(perk);
+        }
+        info.appendChild(fila);
       }
 
       const btn = document.createElement('button');
@@ -737,7 +750,9 @@ const Game = (() => {
       state.isRecord = true;
       saveBest(Modes.get().storageKey, finalMeters);
     }
-    state.coinResult = Coins.earnFromRun(finalMeters, Modes.get().coinMultiplier);
+    state.coinResult = Coins.earnFromRun(
+      finalMeters, Modes.get().coinMultiplier * Skins.coinBonus()
+    );
     Leaderboard.submit(Leaderboard.getPlayer(), finalMeters, Modes.get().key);
     if (state.coinResult.earned > 0) Account.push();
   }

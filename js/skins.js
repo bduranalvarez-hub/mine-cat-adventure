@@ -25,11 +25,17 @@ const Skins = (() => {
   // Rareza de las skins: define el precio y el color de la etiqueta. El
   // precio de cada skin sale de su rareza (una sola fuente de verdad).
   // Orden de menor a mayor para ordenar la tienda.
+  // coinBonus: ventaja pasiva de cada rareza. Es a PROPÓSITO un bonus de
+  // MONEDAS y no de supervivencia (escudos, vidas extra): el ranking
+  // mundial es competitivo y está autenticado en el servidor, así que un
+  // poder que ayude a llegar más lejos lo convertiría en una medida de
+  // cuánto pagaste o cuántos anuncios viste, no de habilidad. Las monedas
+  // solo aceleran la progresión propia y no se comparan entre jugadores.
   const RARITY = Object.freeze({
-    comun: { key: 'comun', nameKey: 'rarityComun', order: 1, price: 1000, color: '#aeb9c2' },
-    rara: { key: 'rara', nameKey: 'rarityRara', order: 2, price: 1500, color: '#4aa3ff' },
-    epica: { key: 'epica', nameKey: 'rarityEpica', order: 3, price: 3000, color: '#c56bff' },
-    legendaria: { key: 'legendaria', nameKey: 'rarityLegendaria', order: 4, price: 5000, color: '#ffb020' },
+    comun: { key: 'comun', nameKey: 'rarityComun', order: 1, price: 500, coinBonus: 0.05, color: '#aeb9c2' },
+    rara: { key: 'rara', nameKey: 'rarityRara', order: 2, price: 1500, coinBonus: 0.10, color: '#4aa3ff' },
+    epica: { key: 'epica', nameKey: 'rarityEpica', order: 3, price: 3000, coinBonus: 0.20, color: '#c56bff' },
+    legendaria: { key: 'legendaria', nameKey: 'rarityLegendaria', order: 4, price: 5000, coinBonus: 0.30, color: '#ffb020' },
   });
 
   // renderW = ancho del personaje en unidades de mundo (se escala la imagen
@@ -122,6 +128,13 @@ const Skins = (() => {
     ENEMY,
     DEFAULT_ID,
     getActive() { return byId(active); },
+    // Multiplicador de monedas de la skin equipada (1 = sin bonus). El
+    // sphynx inicial no tiene rareza y por tanto no da bonus.
+    coinBonus() {
+      const sk = byId(active);
+      const rar = sk && sk.rarity ? RARITY[sk.rarity] : null;
+      return rar && rar.coinBonus ? 1 + rar.coinBonus : 1;
+    },
     activeId() { return active; },
     setActive,
     isOwned(id) { return owned.includes(id); },

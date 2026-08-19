@@ -76,7 +76,12 @@ const Coins = (() => {
   function earnFromRun(meters, multiplier) {
     rollDay();
     const mult = Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
-    const raw = Math.floor(Math.max(0, meters) / CONFIG.COINS.METERS_PER_COIN) * mult;
+    // El floor va DESPUÉS de aplicar el multiplicador: con el bonus de
+    // skin el factor deja de ser entero (p. ej. 2 x 1.1 = 2.2) y sin esto
+    // el saldo acumularía monedas decimales.
+    const raw = Math.floor(
+      Math.floor(Math.max(0, meters) / CONFIG.COINS.METERS_PER_COIN) * mult
+    );
     const room = Math.max(0, CONFIG.COINS.DAILY_CAP - daily.earned);
     const earned = Math.min(raw, room);
     if (earned > 0) {
