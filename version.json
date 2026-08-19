@@ -1,7 +1,7 @@
 {
   "_comment": "Version PUBLICADA de cada plataforma. La app la consulta al arrancar y avisa si el build del usuario quedo atras. Subir estos numeros AL PUBLICAR, no antes: si se suben y todavia no esta publicado, se avisa de una version que nadie puede instalar.",
   "web": {
-    "build": 45,
+    "build": 47,
     "label": "1.2"
   },
   "android": {
