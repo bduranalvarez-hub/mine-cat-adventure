@@ -72,9 +72,14 @@ anuncios funcionen: solo bloquea el cobro.
 En la barra lateral: **Apps → Añadir app** (*Add app*).
 
 1. Plataforma: **Android**.
-2. *"¿Tu app está publicada en una tienda compatible?"* → **No**.
-   Aunque esté en prueba cerrada, ahí todavía no es localizable.
-   Podrás enlazarla más adelante sin perder los IDs.
+2. *"¿La aplicación está publicada en alguna tienda admitida?"*
+   **Prueba primero "Sí"** y busca `com.minecatadventure.app`:
+   - **Si aparece**, selecciónala. Es lo mejor: arranca la revisión de
+     preparación desde ya y evita la publicación limitada.
+   - **Si no aparece** (lo esperable mientras solo esté en prueba
+     cerrada, porque el buscador de AdMob usa el catálogo público de
+     Play), vuelve atrás y marca **No**. Podrás enlazarla más adelante
+     **sin perder los IDs**.
 3. Nombre de la app: `Mine Cat Adventure`.
 4. Métricas de usuario: opcional, puedes dejarlo desactivado.
 
