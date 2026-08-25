@@ -99,9 +99,19 @@ ID de un bloque de anuncios.
 Con la app seleccionada: **Bloques de anuncios → Añadir bloque de
 anuncios** (*Ad units → Add ad unit*).
 
-1. Formato: **Recompensado** (*Rewarded*). **No** elijas
-   intersticial ni banner: el juego solo usa recompensados y son
-   siempre opcionales.
+1. Formato: **Bonificado**. Así es como la interfaz en español
+   traduce *Rewarded*.
+
+   > ⚠️ **No lo confundas con "Intersticial bonificado"**, que es la
+   > tarjeta de al lado y es un formato distinto: aparece solo en las
+   > pausas, sin que el usuario elija. El bonificado a secas es el que
+   > "permite a los usuarios elegir si quieren verlos", que es nuestro
+   > caso. Además el código llama a `prepareRewardVideoAd` y
+   > `showRewardVideoAd`, que son las API del bonificado: con un ID de
+   > intersticial bonificado los anuncios no cargarían.
+
+   Tampoco elijas banner, nativo ni carga de aplicación: el juego no
+   los usa.
 2. Nombre del bloque: algo reconocible, por ejemplo
    `mca-recompensado`.
 3. Recompensa: te pedirá un *tipo* y una *cantidad* (por ejemplo,
