@@ -31,13 +31,13 @@
 
         <!-- AdMob. Este meta-data es OBLIGATORIO: sin el, el SDK aborta
              al arrancar y la app se cierra sola nada mas abrirla.
-             El valor de abajo es el ID de PRUEBA oficial de Google;
-             hay que cambiarlo por el real de la cuenta de AdMob antes
-             de compilar la version de produccion, junto con el ad unit
-             de js/ads.js (ver el comentario de ese archivo). -->
+             Es el ID de aplicacion REAL de la cuenta de AdMob y debe ser
+             de la misma cuenta que el REWARDED_ID de js/ads.js: el SDK
+             falla si no coinciden. Se distingue del ad unit por la
+             virgulilla (~) en vez de la barra (/). -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="ca-app-pub-6167652699679734~3912662521" />
     </application>
 
     <!-- Permissions -->

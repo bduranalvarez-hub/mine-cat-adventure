@@ -15,7 +15,7 @@ const Version = (() => {
   // que se avise de más (a quien ya está al día) o de menos (nunca).
   const LOCAL = Object.freeze({
     webBuild: 47,
-    androidVersionCode: 4,
+    androidVersionCode: 5,
   });
 
   // Se consulta SIEMPRE la URL remota absoluta, nunca una ruta relativa:

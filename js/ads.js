@@ -6,25 +6,25 @@
 // real de vistas y concede las skins épicas.
 //
 // SOLO existe en la app compilada. En web/PWA no hay SDK nativo, así
-// que available() devuelve false y la tienda muestra "los anuncios
-// llegan en la próxima versión" en vez de un contador congelado.
+// que available() devuelve false y la tienda dice que los anuncios
+// solo están en la app de Android, en vez de un contador congelado.
 //
 // Diseño deliberado: aquí NO se decide nada sobre recompensas. El
 // cliente puede mentir (un APK modificado diría "vi mil anuncios"), así
 // que el conteo, el tope diario y el desbloqueo viven en el servidor.
 // Este módulo solo reporta "el SDK confirmó una vista".
 const Ads = (() => {
-  // IDs de AdMob. Los de abajo son los de PRUEBA OFICIALES de Google:
-  // sirven para desarrollar y siempre devuelven un anuncio de relleno.
-  // ANTES DE COMPILAR PARA PRODUCCIÓN hay que sustituirlos por los
-  // reales de la cuenta de AdMob, y el APPLICATION_ID también en
-  // android/app/src/main/AndroidManifest.xml. Usar los de prueba en
-  // producción no genera ingresos; usar los reales durante el
-  // desarrollo puede costar la suspensión de la cuenta de AdMob por
-  // tráfico inválido, así que el intercambio se hace una sola vez y al
-  // final.
+  // IDs de AdMob. El de PRUEBA de Google se conserva para poder volver
+  // a él al depurar: NUNCA pruebes con el ID real en tu propio
+  // teléfono, porque ver o pulsar tus propios anuncios cuenta como
+  // tráfico inválido y Google suspende cuentas por eso.
   const TEST_REWARDED_ID = 'ca-app-pub-3940256099942544/5224354917';
-  const REWARDED_ID = TEST_REWARDED_ID;
+  // ID REAL del bloque bonificado (cuenta de AdMob creada el
+  // 2026-08-25). Va en pareja con el APPLICATION_ID del
+  // android/app/src/main/AndroidManifest.xml: si cambias uno, cambia el
+  // otro, porque el SDK exige que ambos sean de la misma cuenta. No es
+  // un secreto: los IDs de AdMob viajan dentro del APK.
+  const REWARDED_ID = 'ca-app-pub-6167652699679734/1251724644';
   // Marca si seguimos con los IDs de prueba. La usa el aviso de la
   // tienda para no prometer ingresos que no existen y, sobre todo,
   // para que sea obvio al revisar el build qué configuración lleva.
