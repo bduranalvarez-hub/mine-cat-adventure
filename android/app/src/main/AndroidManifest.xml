@@ -28,6 +28,16 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- AdMob. Este meta-data es OBLIGATORIO: sin el, el SDK aborta
+             al arrancar y la app se cierra sola nada mas abrirla.
+             El valor de abajo es el ID de PRUEBA oficial de Google;
+             hay que cambiarlo por el real de la cuenta de AdMob antes
+             de compilar la version de produccion, junto con el ad unit
+             de js/ads.js (ver el comentario de ese archivo). -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
     </application>
 
     <!-- Permissions -->

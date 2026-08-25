@@ -138,11 +138,27 @@
     <p class="result"><span id="go-distance">0</span> m</p>
     <p id="go-record" class="record hidden" data-i18n="newRecord">¡NUEVO RÉCORD!</p>
     <p id="go-coins" class="go-coins hidden"></p>
+    <p id="go-total" class="rv-note hidden"></p>
     <p id="go-best" class="best"></p>
     <p id="go-retry" class="blink hidden" data-i18n="retry">TOCA PARA REINTENTAR</p>
     <div id="go-buttons" class="go-buttons hidden">
       <button id="go-share" class="mode-btn small" data-i18n="share">📤 COMPARTIR</button>
       <button id="go-menu" class="mode-btn small" data-i18n="changeMode">CAMBIAR MODO</button>
+    </div>
+  </div>
+
+  <!-- Oferta de revivir viendo un anuncio. Aparece ANTES de la pantalla
+       de fin de partida: mientras está en pantalla la carrera todavía no
+       se ha cobrado. Solo se muestra en la app nativa y con cuenta
+       vinculada (el conteo de anuncios es por cuenta). -->
+  <div id="revive" class="overlay hidden">
+    <h2 id="rv-title" data-i18n="reviveTitle">¿SEGUIR JUGANDO?</h2>
+    <p class="result"><span id="rv-distance">0</span> m</p>
+    <p id="rv-desc" class="best" data-i18n="reviveDesc"></p>
+    <p id="rv-note" class="rv-note"></p>
+    <div class="go-buttons">
+      <button id="rv-yes" class="mode-btn small" data-i18n="reviveBtn">🎬 REVIVIR</button>
+      <button id="rv-no" class="mode-btn small" data-i18n="reviveNo">NO, GRACIAS</button>
     </div>
   </div>
 
@@ -159,6 +175,7 @@
   <script src="js/coins.js"></script>
   <script src="js/skins.js"></script>
   <script src="js/account.js"></script>
+  <script src="js/ads.js"></script>
   <script src="js/sprites.js"></script>
   <script src="js/background.js"></script>
   <script src="js/track.js"></script>

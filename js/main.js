@@ -7,6 +7,11 @@
   setupInput(Game.handleAction, Game.handleRelease);
   window.MineCat = Game;
 
+  // SDK de anuncios (solo hace algo dentro de la app compilada).
+  // No bloquea el arranque: si falla, Ads.available() queda en false y
+  // el juego sigue igual, sin ofrecer revivir ni anuncios en la tienda.
+  Ads.init();
+
   window.addEventListener('resize', () => Game.resize());
   window.addEventListener('orientationchange', () => {
     setTimeout(() => Game.resize(), 250);

@@ -858,3 +858,14 @@ body {
   background: rgba(255, 215, 106, 0.10);
   line-height: 1.4;
 }
+
+/* Nota al pie de la oferta de revivir: explica que la marca ya quedó
+   fijada. Deliberadamente apagada y pequeña — es una aclaración, no
+   una promesa; el protagonismo es del botón. */
+.rv-note {
+  font-size: 12px;
+  line-height: 1.35;
+  color: #a98a63;
+  max-width: 34ch;
+  margin: 4px auto 10px;
+}

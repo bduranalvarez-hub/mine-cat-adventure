@@ -50,6 +50,15 @@ const Game = (() => {
       // settleRun(): el choque y el fin de la partida son momentos
       // distintos desde que existe "revivir viendo un anuncio".
       settled: false,
+      // Ya se usó el revivir de esta partida (uno por carrera).
+      revived: false,
+      // Distancia de la PRIMERA muerte. Es la que vale como marca:
+      // récord local y ranking mundial. Lo que se corra después de
+      // revivir suma monedas pero NO puntúa, porque si no la tabla
+      // mundial mediría cuántos anuncios viste y no lo bien que
+      // juegas -el mismo motivo por el que las skins dan monedas y no
+      // escudos-. null mientras no se haya muerto.
+      rankMeters: null,
       best: loadBest(Modes.get().storageKey),
       player: Player.create(),
       track: Track.create(),
@@ -79,9 +88,9 @@ const Game = (() => {
   let adStatus = null;
 
   // ¿Hay anuncios recompensados disponibles? Requieren el SDK nativo de
-  // AdMob, que solo existe en la app compilada (no en web/PWA) y que
-  // todavía no está integrado. Hasta entonces esto es false y la tienda
-  // lo dice, en vez de mostrar un contador congelado sin explicación.
+  // AdMob, que solo existe en la app compilada: en web/PWA esto es
+  // false y la tienda lo dice, en vez de mostrar un contador congelado
+  // sin explicación. Ver js/ads.js.
   function adsAvailable() {
     return typeof Ads !== 'undefined' && Ads.available();
   }
@@ -130,6 +139,8 @@ const Game = (() => {
       'btn-music', 'menu-coin-balance', 'btn-add-coins',
       'shop', 'shop-list', 'shop-coins', 'shop-daily', 'menu-coins',
       'shop-redeem', 'redeem-input', 'btn-redeem', 'redeem-status',
+      'revive', 'rv-title', 'rv-distance', 'rv-desc', 'rv-note', 'rv-yes', 'rv-no',
+      'go-total',
     ].forEach((id) => {
       dom[id] = document.getElementById(id);
     });
@@ -188,6 +199,8 @@ const Game = (() => {
     wireButton('btn-hardcore', () => start('hardcore'));
     wireButton('go-menu', showMenu);
     wireButton('go-share', shareScore);
+    wireButton('rv-yes', acceptRevive);
+    wireButton('rv-no', declineRevive);
     // El botón principal del panel sirve a los tres modos: en 'guest'
     // no hay PIN que validar, solo el nombre.
     wireButton('btn-login', () => (authMode === 'guest' ? doGuest() : doLogin()));
@@ -347,16 +360,34 @@ const Game = (() => {
         // Umbral POR SKIN: hay varias épicas escalonadas, así que el
         // unlockAt global que devuelve el servidor ya no alcanza.
         const meta = skin.unlockAt || (adStatus ? adStatus.unlockAt : 100);
-        btn.textContent = I18n.t('shopAdsProgress', { n: total, t: meta });
-        btn.disabled = true;
         const hint = document.createElement('span');
         hint.className = 'skin-hint';
-        // Mientras el SDK de anuncios no exista (web/PWA, o build sin
-        // AdMob), se dice claro que todavía no hay forma de avanzar:
-        // un contador congelado en 0/100 sin explicación confunde.
-        hint.textContent = adsAvailable()
-          ? I18n.t('shopAdsHint', { t: meta })
-          : I18n.t('shopAdsSoon');
+        // Ver anuncios exige cuenta: el conteo y su tope diario son POR
+        // CUENTA, y un invitado no se puede identificar en el servidor.
+        const puedeVer = adsAvailable()
+          && typeof Account !== 'undefined' && Account.isLinked();
+        if (puedeVer) {
+          // El botón pasa a ser la acción y el avance se va al pie: es
+          // lo que el jugador tiene que tocar, no un marcador.
+          btn.textContent = I18n.t('shopAdsWatch');
+          btn.classList.add('buy');
+          btn.disabled = false;
+          btn.addEventListener('pointerdown', (event) => {
+            event.stopPropagation();
+            GameAudio.unlock();
+            watchAdForSkin(btn);
+          });
+          hint.textContent = `${I18n.t('shopAdsProgress', { n: total, t: meta })} · ${I18n.t('shopAdsHint', { t: meta })}`;
+        } else {
+          // Sin SDK (web/PWA) o sin cuenta se dice claro por qué no se
+          // puede avanzar: un contador congelado en 0/100 sin
+          // explicación confunde.
+          btn.textContent = I18n.t('shopAdsProgress', { n: total, t: meta });
+          btn.disabled = true;
+          hint.textContent = adsAvailable()
+            ? I18n.t('shopAdsNeedAccount')
+            : I18n.t('shopAdsSoon');
+        }
         info.appendChild(hint);
       } else {
         btn.textContent = I18n.t('shopBuy', { n: skin.price });
@@ -385,6 +416,35 @@ const Game = (() => {
 
 
   // Muestra (o limpia) el mensaje del canje. kind: 'ok' | 'err'.
+  // Ver un anuncio desde la tienda para avanzar hacia las skins épicas.
+  // Reutiliza la línea de estado del canje: es el mismo sitio de la
+  // pantalla y el jugador ya sabe mirar ahí.
+  async function watchAdForSkin(btn) {
+    const antes = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = I18n.t('reviveLoading');
+    const res = await Ads.showRewarded();
+    if (!res || !res.ok) {
+      const code = res ? res.code : 'no_disponible';
+      setRedeemStatus(code === 'limite_diario' ? 'adLimit' : 'adFail', 'err');
+      btn.textContent = antes;
+      btn.disabled = false;
+      return;
+    }
+    // El servidor devuelve el conteo ya actualizado: se refleja sin
+    // pedirlo otra vez. unlockAt se conserva porque el umbral que
+    // manda es el de cada skin (Skins.LIST), no este.
+    adStatus = {
+      total: res.total,
+      today: res.today,
+      cap: res.cap,
+      unlockAt: adStatus ? adStatus.unlockAt : 100,
+    };
+    setRedeemStatus('adWatched', 'ok', { n: res.today, t: res.cap });
+    Account.push();
+    renderShop();
+  }
+
   function setRedeemStatus(key, kind, params) {
     const el = dom['redeem-status'];
     if (!key) {
@@ -691,6 +751,7 @@ const Game = (() => {
   function showMenu() {
     state = createState(MODES.MENU);
     dom.gameover.classList.add('hidden');
+    dom.revive.classList.add('hidden');
     dom.ranking.classList.add('hidden');
     dom.shop.classList.add('hidden');
     dom.login.classList.add('hidden');
@@ -720,6 +781,7 @@ const Game = (() => {
     lastShownMeters = -1;
     dom.menu.classList.add('hidden');
     dom.gameover.classList.add('hidden');
+    dom.revive.classList.add('hidden');
     dom['go-record'].classList.add('hidden');
     dom['go-coins'].classList.add('hidden');
     dom['go-retry'].classList.add('hidden');
@@ -745,16 +807,134 @@ const Game = (() => {
     state.settled = true;
 
     const finalMeters = meters();
-    if (finalMeters > state.best) {
-      state.best = finalMeters;
+    // La MARCA es la de la primera muerte; la distancia total (que puede
+    // ser mayor si se revivió) solo cuenta para las monedas.
+    const scoreMeters = state.rankMeters == null ? finalMeters : state.rankMeters;
+    if (scoreMeters > state.best) {
+      state.best = scoreMeters;
       state.isRecord = true;
-      saveBest(Modes.get().storageKey, finalMeters);
+      saveBest(Modes.get().storageKey, scoreMeters);
     }
     state.coinResult = Coins.earnFromRun(
       finalMeters, Modes.get().coinMultiplier * Skins.coinBonus()
     );
-    Leaderboard.submit(Leaderboard.getPlayer(), finalMeters, Modes.get().key);
+    Leaderboard.submit(Leaderboard.getPlayer(), scoreMeters, Modes.get().key);
     if (state.coinResult.earned > 0) Account.push();
+  }
+
+  // --- Revivir viendo un anuncio ----------------------------------------
+
+  // ¿Se puede ofrecer? Hace falta el SDK nativo (solo existe en la app
+  // compilada), una cuenta vinculada -el conteo de anuncios y su tope
+  // diario son POR CUENTA- y no haber revivido ya en esta carrera.
+  function canOfferRevive() {
+    return Boolean(
+      state && !state.revived
+      && adsAvailable()
+      && typeof Account !== 'undefined'
+      && Account.isLinked()
+    );
+  }
+
+  function reviveOfferOpen() {
+    return Boolean(dom.revive && !dom.revive.classList.contains('hidden'));
+  }
+
+  function showReviveOffer() {
+    dom.hud.classList.add('hidden');
+    dom['rv-distance'].textContent = String(state.rankMeters);
+    dom['rv-desc'].textContent = I18n.t('reviveDesc');
+    dom['rv-note'].textContent = I18n.t('reviveNote', { m: state.rankMeters });
+    dom['rv-yes'].disabled = false;
+    dom['rv-yes'].textContent = I18n.t('reviveBtn');
+    dom.revive.classList.remove('hidden');
+  }
+
+  // El jugador dice que no, o el anuncio no se pudo mostrar: la carrera
+  // termina de verdad y AHÍ se cobra (récord, monedas, ranking).
+  function declineRevive() {
+    if (!reviveOfferOpen()) return;
+    dom.revive.classList.add('hidden');
+    settleRun();
+    showGameOver();
+  }
+
+  async function acceptRevive() {
+    if (!reviveOfferOpen() || state.revived) return;
+    dom['rv-yes'].disabled = true;
+    dom['rv-yes'].textContent = I18n.t('reviveLoading');
+
+    const res = await Ads.showRewarded();
+    // Entre la petición y la respuesta el jugador pudo salirse (tocar
+    // "no gracias", cerrar la app). Si la oferta ya no está, no se
+    // resucita una partida que el jugador dio por terminada.
+    if (!reviveOfferOpen()) return;
+
+    if (!res || !res.ok) {
+      // No se castiga con el fin de la partida: se explica y se deja
+      // decidir otra vez. Salvo con el tope diario, donde reintentar
+      // no serviría de nada.
+      const code = res ? res.code : 'no_disponible';
+      dom['rv-note'].textContent = I18n.t(
+        code === 'limite_diario' ? 'adLimit' : 'adFail'
+      );
+      dom['rv-yes'].textContent = I18n.t('reviveBtn');
+      dom['rv-yes'].disabled = code === 'limite_diario';
+      return;
+    }
+
+    state.revived = true;
+    dom.revive.classList.add('hidden');
+    resumeAfterRevive();
+  }
+
+  // Devuelve la vagoneta a riel firme y despeja lo que viene: revivir
+  // para chocar al instante sería una estafa al jugador que acaba de
+  // ver un anuncio entero.
+  function resumeAfterRevive() {
+    const track = state.track;
+    const margin = CONFIG.CART.WIDTH;
+    let safeX = state.worldX + playerX;
+    // Si murió en un hueco, el barrido hacia adelante encuentra el
+    // siguiente tramo con riel de sobra a ambos lados.
+    let guard = 0;
+    Track.extend(track, safeX + viewW * 2, difficulty());
+    while (!Track.hasRailAround(track, safeX, margin) && guard < 500) {
+      safeX += 40;
+      guard += 1;
+      Track.extend(track, safeX + viewW * 2, difficulty());
+    }
+
+    state.worldX = safeX - playerX;
+    state.player.worldY = Track.heightAt(track, safeX);
+    state.player.vy = 0;
+    state.player.onRail = true;
+    state.player.tilt = 0;
+    state.player.spin = 0;
+    state.player.coyote = 0;
+    state.player.lastRel = 0;
+
+    // Tramo limpio por delante (vagones averiados y carros que vienen
+    // de frente) más un retraso extra antes del siguiente encuentro.
+    const clearUntil = safeX + viewW * 1.5;
+    state.obstacles.list = state.obstacles.list.filter(
+      (o) => o.x < safeX - 200 || o.x > clearUntil
+    );
+    if (state.obstacles.nextWreckX < clearUntil) {
+      state.obstacles.nextWreckX = clearUntil;
+    }
+    state.obstacles.cartTimer = Math.max(
+      state.obstacles.cartTimer, Modes.get().oncoming.firstDelay
+    );
+
+    state.mode = MODES.PLAYING;
+    state.cause = null;
+    state.deathTimer = 0;
+    lastShownMeters = -1;
+    dom.hud.classList.remove('hidden');
+    // Cámara al sitio nuevo de golpe: sin esto entra deslizándose desde
+    // donde quedó el cuerpo al caer.
+    updateCamera(1);
   }
 
   // Red de seguridad: si el jugador manda la app a segundo plano o la
@@ -762,7 +942,16 @@ const Game = (() => {
   // detiene y la carrera se quedaría sin cobrar. Solo liquida si ya
   // estaba muerto; en pleno juego no hay nada que cerrar.
   function settleIfDead() {
-    if (state && state.mode === MODES.DEAD) settleRun();
+    if (!state || state.mode !== MODES.DEAD) return;
+    // Si la oferta de revivir seguía en pantalla, se retira: la partida
+    // queda cobrada y resucitarla al volver duplicaría el pago.
+    if (reviveOfferOpen()) {
+      dom.revive.classList.add('hidden');
+      settleRun();
+      showGameOver();
+      return;
+    }
+    settleRun();
   }
 
   // Choque o caída. NO cierra la partida ni paga: de eso se encarga
@@ -771,6 +960,9 @@ const Game = (() => {
     state.mode = MODES.DEAD;
     state.cause = cause;
     state.deathTimer = 0;
+    // La marca se fija aquí, en la PRIMERA muerte, y ya no cambia
+    // aunque se reviva y se llegue más lejos.
+    if (state.rankMeters == null) state.rankMeters = meters();
 
     if (cause === 'crash') {
       state.player.onRail = false;
@@ -787,7 +979,18 @@ const Game = (() => {
     dom.hud.classList.add('hidden');
     dom['go-title'].textContent =
       state.cause === 'fall' ? I18n.t('fallTitle') : I18n.t('crashTitle');
-    dom['go-distance'].textContent = String(meters());
+    // El número grande es la MARCA, no la distancia recorrida: es lo
+    // que va al récord y al ranking. Si se revivió, el total (mayor)
+    // se aclara aparte para que no parezca que se perdieron metros.
+    const total = meters();
+    const marca = state.rankMeters == null ? total : state.rankMeters;
+    dom['go-distance'].textContent = String(marca);
+    if (state.revived && total > marca) {
+      dom['go-total'].textContent = I18n.t('goRevivedTotal', { m: total, s: marca });
+      dom['go-total'].classList.remove('hidden');
+    } else {
+      dom['go-total'].classList.add('hidden');
+    }
     dom['go-best'].textContent = I18n.t('recordMode', {
       mode: I18n.t(Modes.get().labelKey),
       m: state.best,
@@ -837,7 +1040,10 @@ const Game = (() => {
       if (Player.jump(state.player)) GameAudio.jump();
       return;
     }
-    if (state.mode === MODES.DEAD && state.deathTimer > 1.1) {
+    // Con la oferta de revivir en pantalla el toque no reinicia: la
+    // partida aún no se ha cobrado, así que empezar otra aquí perdería
+    // la marca y las monedas de la carrera anterior.
+    if (state.mode === MODES.DEAD && state.deathTimer > 1.1 && !reviveOfferOpen()) {
       startGame();
     }
   }
@@ -953,13 +1159,20 @@ const Game = (() => {
     if (state.cause === 'crash') {
       state.player.tilt += 5 * dt;
     }
-    if (state.deathTimer > 0.9 && dom.gameover.classList.contains('hidden')) {
-      // Aquí ya no hay vuelta atrás (cuando exista el botón de revivir,
-      // este es el punto donde el jugador habrá dicho que no).
-      settleRun();
-      showGameOver();
+    const goHidden = dom.gameover.classList.contains('hidden');
+    if (state.deathTimer > 0.9 && goHidden && !reviveOfferOpen()) {
+      if (canOfferRevive()) {
+        // Todavía NO se cobra: mientras la oferta esté en pantalla la
+        // carrera puede continuar. Se liquida al rechazarla.
+        showReviveOffer();
+      } else {
+        settleRun();
+        showGameOver();
+      }
     }
-    if (state.deathTimer > 1.1) {
+    // Solo cuando la pantalla de fin de partida está visible: si no,
+    // estos botones aparecerían detrás de la oferta de revivir.
+    if (state.deathTimer > 1.1 && !goHidden) {
       dom['go-retry'].classList.remove('hidden');
       dom['go-buttons'].classList.remove('hidden');
     }
