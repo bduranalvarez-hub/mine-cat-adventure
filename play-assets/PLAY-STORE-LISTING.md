@@ -160,6 +160,26 @@ minecatadventure@gmail.com
 información de contacto (email/teléfono real), datos financieros,
 salud, mensajes, fotos/videos, historial de navegación.
 
+## Permisos que añade el SDK de AdMob
+
+Verificado sobre el manifiesto fusionado del APK de release. El juego
+por sí solo solo pedía `INTERNET`; el resto los añade el SDK de
+anuncios automáticamente y no hay que declararlos a mano:
+
+```
+com.google.android.gms.permission.AD_ID
+android.permission.ACCESS_ADSERVICES_AD_ID
+android.permission.ACCESS_ADSERVICES_ATTRIBUTION
+android.permission.ACCESS_ADSERVICES_TOPICS
+android.permission.ACCESS_NETWORK_STATE
+android.permission.FOREGROUND_SERVICE
+android.permission.WAKE_LOCK
+```
+
+Los tres `ACCESS_ADSERVICES_*` son del Privacy Sandbox de Android.
+`FOREGROUND_SERVICE` y `WAKE_LOCK` a veces llaman la atención en
+revisión: vienen del SDK de anuncios, no de código propio del juego.
+
 ---
 
 # Clasificación de contenido (Content rating / IARC)
