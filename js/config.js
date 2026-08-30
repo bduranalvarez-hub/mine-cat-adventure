@@ -29,6 +29,11 @@ const CONFIG = Object.freeze({
   COINS: Object.freeze({
     METERS_PER_COIN: 100,
     DAILY_CAP: 100,
+    // Monedas por anuncio recompensado visto. NO cuenta para DAILY_CAP
+    // (ese tope es de la distancia recorrida); su freno es el tope
+    // diario de anuncios del servidor, 10 al dia, o sea 100 monedas
+    // como maximo por esta via. Ver js/ads.js y record_ad_watch.
+    PER_AD: 10,
   }),
 
   GRAVITY: 2500,

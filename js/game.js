@@ -141,6 +141,7 @@ const Game = (() => {
       'shop-redeem', 'redeem-input', 'btn-redeem', 'redeem-status',
       'revive', 'rv-title', 'rv-distance', 'rv-desc', 'rv-note', 'rv-yes', 'rv-no',
       'go-total',
+      'coin-plus',
     ].forEach((id) => {
       dom[id] = document.getElementById(id);
     });
@@ -225,7 +226,7 @@ const Game = (() => {
     wireButton('btn-music', toggleMusic);
     wireButton('btn-lang', () => I18n.toggle());
     // La recompensa por anuncio aún no está implementada: solo avisa.
-    wireButton('btn-add-coins', () => window.alert(I18n.t('comingSoon')));
+    wireButton('btn-add-coins', verAnuncioPorMonedas);
     wireButton('btn-lang-welcome', () => I18n.toggle());
     dom.nick.addEventListener('keydown', (event) => {
       event.stopPropagation();
@@ -280,6 +281,14 @@ const Game = (() => {
   // --- Tienda de skins -----------------------------------------------------
   function updateCoinsUI() {
     dom['menu-coin-balance'].textContent = String(Coins.getBalance());
+    // El "+" y la explicación de la insignia solo cuando hay anuncios
+    // que ver: en web/PWA no existe el SDK y sería una promesa vacía.
+    if (dom['coin-plus']) {
+      dom['coin-plus'].classList.toggle('hidden', !adsAvailable());
+    }
+    dom['btn-add-coins'].title = adsAvailable()
+      ? I18n.t('adCoinsHint', { n: CONFIG.COINS.PER_AD })
+      : I18n.t('shopAdsSoon');
     dom['menu-coins'].textContent = I18n.t('shopCoinsPlain', { n: Coins.getBalance() });
     dom['shop-coins'].textContent = I18n.t('shopCoins', { n: Coins.getBalance() });
     dom['shop-daily'].textContent = I18n.t('shopDaily', {
@@ -416,6 +425,43 @@ const Game = (() => {
 
 
   // Muestra (o limpia) el mensaje del canje. kind: 'ok' | 'err'.
+  // Acredita las monedas de un anuncio ya CONFIRMADO por el servidor.
+  // Se llama desde los dos sitios donde la recompensa son monedas (la
+  // insignia del menú y la tienda), no desde revivir: ahí la recompensa
+  // es seguir la partida, y sumar monedas encima enturbiaría el momento.
+  //
+  // El grano fino: las monedas se acreditan en el cliente, igual que las
+  // de la carrera. Lo que impide farmear no es esto sino el tope diario
+  // de anuncios, que sí vive en el servidor (10 al día): como mucho se
+  // pueden sacar 10 x CONFIG.COINS.PER_AD monedas por esta vía.
+  function acreditarMonedasDeAnuncio() {
+    Coins.add(CONFIG.COINS.PER_AD);
+    Account.push();
+    updateCoinsUI();
+    return CONFIG.COINS.PER_AD;
+  }
+
+  // Insignia de monedas del menú: ver un anuncio a cambio de monedas.
+  // Exige cuenta porque el tope diario de anuncios es POR CUENTA y un
+  // invitado no se puede identificar en el servidor.
+  async function verAnuncioPorMonedas() {
+    if (!adsAvailable()) {
+      window.alert(I18n.t('shopAdsSoon'));
+      return;
+    }
+    if (typeof Account === 'undefined' || !Account.isLinked()) {
+      window.alert(I18n.t('shopAdsNeedAccount'));
+      return;
+    }
+    const res = await Ads.showRewarded();
+    if (!res || !res.ok) {
+      const code = res ? res.code : 'no_disponible';
+      window.alert(I18n.t(code === 'limite_diario' ? 'adLimit' : 'adFail'));
+      return;
+    }
+    window.alert(I18n.t('adCoinsOk', { n: acreditarMonedasDeAnuncio() }));
+  }
+
   // Ver un anuncio desde la tienda para avanzar hacia las skins épicas.
   // Reutiliza la línea de estado del canje: es el mismo sitio de la
   // pantalla y el jugador ya sabe mirar ahí.
@@ -440,8 +486,11 @@ const Game = (() => {
       cap: res.cap,
       unlockAt: adStatus ? adStatus.unlockAt : 100,
     };
-    setRedeemStatus('adWatched', 'ok', { n: res.today, t: res.cap });
-    Account.push();
+    // El mismo anuncio paga las dos cosas: avanza hacia la épica y deja
+    // monedas. Es el mismo esfuerzo del jugador, así que cobrarlo una
+    // sola vez se sentiría mezquino.
+    const monedas = acreditarMonedasDeAnuncio();
+    setRedeemStatus('adWatchedCoins', 'ok', { n: res.today, t: res.cap, c: monedas });
     renderShop();
   }
 
