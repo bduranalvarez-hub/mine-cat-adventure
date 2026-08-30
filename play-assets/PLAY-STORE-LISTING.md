@@ -117,11 +117,31 @@ Sube las 5 capturas en el orden 01→05 (menú, gameplay fácil, gameplay
 hardcore, ranking, resultado). Play exige mínimo 2; con 5 ya se
 cumple sobradamente.
 
-> ⚠️ **Las capturas actuales son del 7 de julio de 2026 y están
-> desactualizadas.** No muestran el arte nuevo del menú, ni la tienda,
-> ni las skins, ni la pantalla de cuenta, todo lo cual se añadió
-> después. Conviene regenerarlas antes de publicar en producción: la
-> primera captura es lo que más pesa en la decisión de instalar.
+### Capturas nuevas (agosto de 2026)
+
+Las cinco – son las que hay que subir: 1080x1920, una skin y
+un mineral distintos en cada una, con el arte de roca nuevo.
+
+| Archivo | Skin | Profundidad | Mineral |
+|---|---|---|---|
+|  | Sphynx (inicial) | 60 m | tierra |
+|  | Pirata (común) | 380 m | plata |
+|  | Robot (rara) | 850 m | oro |
+|  | Dragón (épica) | 1700 m | platino |
+|  | Gato realista (legendaria) | 3200 m | diamante |
+
+Se generaron desde el juego real exportando el canvas a 1080x1920 (ver
+). El HUD de distancia es HTML y no
+entra en el canvas, así que se reestampa leyendo su propio estilo y
+rectángulo del DOM vivo: color, aro del modo, posición y tamaño salen
+de la maqueta real, no de valores copiados a mano.
+
+> ⚠️ **Faltan las pantallas de interfaz**: menú, tienda, ranking y fin
+> de partida. Son overlays HTML y no se pueden exportar desde el
+> canvas. Los archivos ,  y
+>  siguen siendo los del 7 de julio y NO muestran
+> el arte nuevo del menú, la tienda ni las skins: no los subas tal
+> cual. Los antiguos  y  quedan sustituidos por las .
 
 ---
 
