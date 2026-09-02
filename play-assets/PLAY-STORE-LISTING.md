@@ -123,7 +123,28 @@ Las cinco `g1`–`g5` son las que hay que subir: 1080x1920, una skin y un
 mineral distintos en cada una, con el arte de roca nuevo.
 
 | Archivo | Skin | Profundidad | Mineral |
-|---
+|---|---|---|---|
+| `g1-sphynx-tierra.png` | Sphynx (inicial) | 60 m | tierra |
+| `g2-pirata-plata.png` | Pirata (común) | 380 m | plata |
+| `g3-robot-oro.png` | Robot (rara) | 850 m | oro |
+| `g4-dragon-platino.png` | Dragón (épica) | 1700 m | platino |
+| `g5-gatoreal-diamante.png` | Gato realista (legendaria) | 3200 m | diamante |
+
+Se generaron desde el juego real exportando el canvas a 1080x1920 (ver
+`scripts/_dev-asset-receiver.ps1`). El HUD de distancia es HTML y no
+entra en el canvas, así que se reestampa leyendo su propio estilo y su
+propio rectángulo del DOM ya maquetado: color, aro del modo, posición y
+tamaño salen de la maqueta real, no de valores copiados a mano.
+
+> ⚠️ **Faltan las pantallas de interfaz** en el repositorio: menú,
+> tienda, ranking y fin de partida. Son overlays HTML y no se pueden
+> exportar desde el canvas. Las que están subidas a la ficha las sacó el
+> autor a mano desde el navegador el 2026-08-29; conviene guardarlas
+> aquí también. Los archivos `01-menu.png`, `04-ranking.png` y
+> `05-resultado.png` de esta carpeta siguen siendo los del 7 de julio y
+> NO reflejan el arte actual.
+
+---
 
 # Formulario "Seguridad de los datos" (Data safety)
 
