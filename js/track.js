@@ -288,8 +288,31 @@ const Track = (() => {
     });
   }
 
+  // Garantiza riel continuo desde x hasta x + length: alarga el tramo que
+  // contiene x y descarta lo generado después, para que extend() siga
+  // generando a partir de ahí. Devuelve el final del riel, o null si x no
+  // está sobre riel.
+  //
+  // Lo usa el revivir: el jugador acaba de ver un anuncio entero y no
+  // puede volver a morir en el primer hueco. Con los rieles de cada modo
+  // (300-1250 u) no hay NINGÚN tramo existente lo bastante largo para dar
+  // 2 s de margen a velocidad alta (hasta ~2700 u en hardcore), así que
+  // escoger el mejor tramo no basta: hay que rehacer la vía por delante.
+  // El tramo alargado conserva su desnivel y sigue el perfil de colinas,
+  // que ya está acotado a pendientes jugables.
+  function clearRunway(track, x, length) {
+    const segs = track.segments;
+    const i = segs.findIndex((seg) => x >= seg.x0 && x <= seg.x1);
+    if (i < 0) return null;
+    segs[i].x1 = Math.max(segs[i].x1, x + length);
+    segs.length = i + 1;
+    track.generatedUntil = segs[i].x1;
+    return segs[i].x1;
+  }
+
   return {
     create, extend, prune, heightAt, slopeAt,
     hasRailAt, hasRailAround, railLeftEdgeAt, railRightEdgeLeftOf, draw,
+    clearRunway,
   };
 })();

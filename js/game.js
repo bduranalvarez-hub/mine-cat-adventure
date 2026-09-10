@@ -23,6 +23,10 @@ const Game = (() => {
   // Cuándo volvió a verse la página (p. ej. al cerrar un anuncio).
   let lastVisibleAt = 0;
   const UNFREEZE_GRACE_MS = 400;
+  // Segundos mínimos de riel sin huecos por delante al reanudar tras
+  // revivir. Medido con 5 revivires: sin esto el primer hueco llegaba
+  // entre 0,8 y 1,8 s después de reanudar, sin tiempo real de reacción.
+  const REVIVE_RUNWAY_SECONDS = 2;
 
   const dom = {};
 
@@ -1070,6 +1074,18 @@ const Game = (() => {
       Track.extend(track, safeX + viewW * 2, difficulty());
     }
 
+    // Vía sin huecos por delante durante REVIVE_RUNWAY_SECONDS. Se calcula
+    // con el peor caso: la velocidad que alcanzará en ese tiempo y el
+    // máximo acelerón de las bajadas (SLOPE_SPEED_MAX). La vagoneta cae
+    // cuando su centro deja el riel, así que el margen se mide desde ahí.
+    const mode = Modes.get();
+    const vPeor = Math.min(
+      mode.maxSpeed, state.speed + mode.speedRamp * REVIVE_RUNWAY_SECONDS
+    ) * CONFIG.SLOPE_SPEED_MAX;
+    const finRiel = Track.clearRunway(track, safeX, vPeor * REVIVE_RUNWAY_SECONDS);
+    const runwayEnd = finRiel === null ? safeX : finRiel;
+    Track.extend(track, runwayEnd + viewW * 2, difficulty());
+
     state.worldX = safeX - playerX;
     state.player.worldY = Track.heightAt(track, safeX);
     state.player.vy = 0;
@@ -1079,15 +1095,14 @@ const Game = (() => {
     state.player.coyote = 0;
     state.player.lastRel = 0;
 
-    // Tramo limpio por delante (vagones averiados y carros que vienen
-    // de frente) más un retraso extra antes del siguiente encuentro.
-    const clearUntil = safeX + viewW * 1.5;
-    state.obstacles.list = state.obstacles.list.filter(
-      (o) => o.x < safeX - 200 || o.x > clearUntil
-    );
-    if (state.obstacles.nextWreckX < clearUntil) {
-      state.obstacles.nextWreckX = clearUntil;
-    }
+    // Todo lo que había por delante se colocó para la vía VIEJA: tras
+    // rehacerla, un vagón averiado podría quedar flotando sobre un hueco
+    // nuevo. Se retira entero y los generadores lo reponen validando contra
+    // la vía nueva; ninguno cae dentro del tramo sin huecos. Los enemigos
+    // no pueden llegar antes de tiempo: su temporizador (4-10 s según el
+    // modo) solo corre con la partida en marcha, no mientras está congelada.
+    state.obstacles.list = state.obstacles.list.filter((o) => o.x < safeX - 200);
+    state.obstacles.nextWreckX = Math.max(state.obstacles.nextWreckX, runwayEnd);
     state.obstacles.cartTimer = Math.max(
       state.obstacles.cartTimer, Modes.get().oncoming.firstDelay
     );
