@@ -18,6 +18,64 @@ const Game = (() => {
 
   const dom = {};
 
+  // --- Calidad adaptativa ------------------------------------------------
+  // Hay móviles que no dan abasto dibujando al doble de densidad. En vez
+  // de adivinar la gama del dispositivo -que no se puede detectar de
+  // forma fiable- se MIDE el tiempo real de fotograma mientras se juega
+  // y se baja la densidad si no se llega a un ritmo jugable.
+  //
+  // La bajada es de un solo sentido y se recuerda: no se vuelve a subir,
+  // para que la calidad no oscile en el borde del umbral, y la próxima
+  // partida ya arranca ligera sin repetir la medición.
+  const KEY_QUALITY = 'mca-quality';
+  const FRAME_SAMPLES = 120;  // ~2 s a 60 fps
+  const FRAME_WARMUP = 30;    // los primeros fotogramas siempre son peores
+  const SLOW_FRAME_MS = 22;   // ~45 fps; por debajo de eso se nota
+
+  function readQuality() {
+    try {
+      return localStorage.getItem(KEY_QUALITY) === 'low';
+    } catch (err) {
+      return false;
+    }
+  }
+
+  let lowQuality = readQuality();
+  let frameSamples = [];
+  // Si ya se decidió en una sesión anterior, no hace falta volver a medir.
+  let qualityDecided = lowQuality;
+
+  function setLowQuality() {
+    if (lowQuality) return;
+    lowQuality = true;
+    try {
+      localStorage.setItem(KEY_QUALITY, 'low');
+    } catch (err) {
+      /* sin almacenamiento: vale para esta sesión */
+    }
+    resize();
+  }
+
+  // Recibe el tiempo REAL del fotograma (ms) desde el bucle de main.js.
+  // Tiene que ser el crudo: el dt que usa la simulación está acotado a
+  // 1/30 s, así que no distingue 30 fps de 5 y no serviría para medir.
+  function reportFrame(ms) {
+    if (qualityDecided || !state || state.mode !== MODES.PLAYING) return;
+    // Descarta valores absurdos: pestaña en segundo plano, depurador
+    // detenido o el primer fotograma tras volver de otra app.
+    if (!Number.isFinite(ms) || ms <= 0 || ms > 1000) return;
+    frameSamples.push(ms);
+    if (frameSamples.length < FRAME_SAMPLES) return;
+
+    qualityDecided = true;
+    const utiles = frameSamples.slice(FRAME_WARMUP).sort((a, b) => a - b);
+    frameSamples = [];
+    // Mediana y no media: unos pocos tirones sueltos no deben condenar
+    // a un dispositivo que por lo demás va fino.
+    const mediana = utiles[Math.floor(utiles.length / 2)];
+    if (mediana > SLOW_FRAME_MS) setLowQuality();
+  }
+
   function loadBest(storageKey) {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -765,9 +823,20 @@ const Game = (() => {
   }
 
   function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.floor(canvas.clientWidth * dpr);
-    canvas.height = Math.floor(canvas.clientHeight * dpr);
+    // En calidad baja se dibuja a densidad 1: en una pantalla de dpr 2
+    // son la cuarta parte de píxeles. Se ve algo menos nítido, pero es
+    // la diferencia entre injugable y fluido. Ver reportFrame().
+    const dpr = Math.min(window.devicePixelRatio || 1, lowQuality ? 1 : 2);
+    const w = Math.floor(canvas.clientWidth * dpr);
+    const h = Math.floor(canvas.clientHeight * dpr);
+    // Si el layout todavía no ha dado tamaño -un WebView que mide tarde,
+    // la app abierta en segundo plano- se deja todo como estaba. Con 0
+    // el zoom sale 0, viewH acaba en NaN y el dibujado revienta en CADA
+    // fotograma; el evento de resize volverá a llamar aquí con medidas
+    // buenas en cuanto las haya.
+    if (w <= 0 || h <= 0) return;
+    canvas.width = w;
+    canvas.height = h;
 
     // La cámara es igual para los tres modos (no depende de la
     // dificultad). El zoom se elige para que el mundo visible cumpla
@@ -810,6 +879,10 @@ const Game = (() => {
     dom['guest-notice'].classList.toggle('hidden', Account.isLinked());
     updateMenuBest();
     updateCoinsUI();
+    // El menu es el momento tranquilo para precargar el anuncio: asi
+    // llega listo a la partida y el boton de revivir responde al
+    // instante, sin descargar nada mientras el jugador corre.
+    if (typeof Ads !== 'undefined') Ads.setPreloadAllowed(true);
     Music.setTempo(Modes.NORMAL.musicTempo);
     Music.start(Modes.NORMAL.musicTempo);
     dom.menu.classList.remove('hidden');
@@ -825,6 +898,8 @@ const Game = (() => {
   }
 
   function startGame() {
+    // Nada de descargas durante la partida (ver js/ads.js).
+    if (typeof Ads !== 'undefined') Ads.setPreloadAllowed(false);
     state = createState(MODES.PLAYING);
     sparks = [];
     lastShownMeters = -1;
@@ -1271,6 +1346,7 @@ const Game = (() => {
       viewH,
       playerWorldY: state.player.worldY,
       onRail: state.player.onRail,
+      lowQuality,
       playerSlope: Track.slopeAt(state.track, state.worldX + playerX),
       segments: state.track.segments.slice(),
       obstacles: state.obstacles.list.map((o) => ({
@@ -1279,5 +1355,8 @@ const Game = (() => {
     };
   }
 
-  return { setup, resize, handleAction, handleRelease, start, update, render, debugState };
+  return {
+    setup, resize, handleAction, handleRelease, start, update, render,
+    reportFrame, debugState,
+  };
 })();

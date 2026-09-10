@@ -71,9 +71,14 @@
 
   let lastTime = performance.now();
   function frame(now) {
+    const crudo = now - lastTime;
     // Limita dt para evitar saltos enormes al volver de segundo plano.
-    const dt = Math.min((now - lastTime) / 1000, 1 / 30);
+    const dt = Math.min(crudo / 1000, 1 / 30);
     lastTime = now;
+    // El tiempo SIN acotar es el único que sirve para medir el
+    // rendimiento real: dt está topado a 1/30 s y no distingue 30 fps
+    // de 5. Ver la calidad adaptativa en js/game.js.
+    Game.reportFrame(crudo);
     Game.update(dt);
     Game.render(dt);
     requestAnimationFrame(frame);

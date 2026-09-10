@@ -35,6 +35,10 @@ const Ads = (() => {
   let preparing = false;  // hay una carga en curso (evita solaparlas)
   let loaded = false;     // hay un anuncio cargado listo para mostrar
   let showing = false;    // se está mostrando (evita dobles toques)
+  // ¿Se puede precargar AHORA? Solo fuera de la partida. Descargar y
+  // preparar un vídeo es caro y en móviles modestos se nota como tirones
+  // en pleno juego; el menú es el momento tranquilo para pagarlo.
+  let preloadAllowed = false;
 
   function isNativeApp() {
     return Boolean(
@@ -66,9 +70,12 @@ const Ads = (() => {
         initializeForTesting: false,
       });
       ready = true;
-      // Se precarga de inmediato: un anuncio recompensado tarda unos
-      // segundos en llegar, y pedirlo recién cuando el jugador acaba de
-      // morir haría que el botón de revivir se sintiera roto.
+      // NO se precarga aquí. Antes se hacía, y en dispositivos modestos
+      // la descarga del vídeo caía justo cuando el jugador ya estaba
+      // corriendo: el juego arrancaba bien y a los pocos segundos daba
+      // tirones. Ahora la precarga la abre el menú (setPreloadAllowed),
+      // así el anuncio queda listo ANTES de empezar la partida y el
+      // botón de revivir sigue respondiendo al instante.
       prepare();
       return true;
     } catch (err) {
@@ -77,9 +84,9 @@ const Ads = (() => {
     }
   }
 
-  // Deja un anuncio cargado en memoria. Silencioso: que no haya
-  // inventario disponible es normal y no es un error que mostrar.
-  async function prepare() {
+  // Carga de verdad. Silencioso: que no haya inventario disponible es
+  // normal y no es un error que mostrar.
+  async function loadAd() {
     const p = getPlugin();
     if (!p || !ready || loaded || preparing) return loaded;
     preparing = true;
@@ -92,6 +99,23 @@ const Ads = (() => {
       preparing = false;
     }
     return loaded;
+  }
+
+  // Precarga OPORTUNISTA: solo si estamos en un momento tranquilo. La
+  // usa el arranque y la apertura del menú. Durante la partida no hace
+  // nada; showRewarded() sí carga bajo demanda cuando hace falta.
+  async function prepare() {
+    if (!preloadAllowed) return loaded;
+    return loadAd();
+  }
+
+  // El juego abre y cierra la ventana de precarga: abierta en el menú,
+  // cerrada al empezar a jugar. Al abrirla se aprovecha para dejar el
+  // anuncio listo, de modo que si el jugador muere a mitad de partida
+  // el botón de revivir ya lo tiene cargado.
+  function setPreloadAllowed(allowed) {
+    preloadAllowed = Boolean(allowed);
+    if (preloadAllowed) prepare();
   }
 
   // ¿Se pueden ofrecer anuncios ahora mismo? La tienda y el botón de
@@ -113,7 +137,9 @@ const Ads = (() => {
   async function showRewarded() {
     const p = getPlugin();
     if (!p || !ready || showing) return { ok: false, code: 'no_disponible' };
-    if (!loaded && !(await prepare())) {
+    // Bajo demanda se salta la ventana de precarga: el jugador acaba de
+    // pedir el anuncio, así que se carga aunque estemos en partida.
+    if (!loaded && !(await loadAd())) {
       return { ok: false, code: 'no_disponible' };
     }
     showing = true;
@@ -125,8 +151,10 @@ const Ads = (() => {
       reward = null;
     } finally {
       showing = false;
-      // Se consumió: el siguiente hay que volver a cargarlo. Se
-      // precarga ya para que el próximo botón responda al instante.
+      // Se consumió: el siguiente hay que volver a cargarlo. La
+      // precarga es oportunista, así que tras revivir -que devuelve al
+      // jugador a la partida- no se encadena otra descarga; esperará al
+      // menú. Desde la tienda sí se recarga en el acto.
       loaded = false;
       prepare();
     }
@@ -140,5 +168,7 @@ const Ads = (() => {
     return Account.watchAd();
   }
 
-  return { init, available, prepare, showRewarded, USING_TEST_IDS };
+  return {
+    init, available, prepare, setPreloadAllowed, showRewarded, USING_TEST_IDS,
+  };
 })();
