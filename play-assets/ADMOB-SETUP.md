@@ -1,7 +1,21 @@
 # Configurar AdMob para Mine Cat Adventure
 
-Guía para obtener los dos IDs reales que faltan y dejar los anuncios
-generando ingresos. Escrita en agosto de 2026.
+> ## Estado al 2026-09-09 — LOS PASOS 1 A 5 YA ESTÁN HECHOS
+>
+> - Cuenta de AdMob creada y app registrada (2026-08-25).
+> - Bloque **bonificado** creado; los IDs reales ya están en `js/ads.js`
+>   y en `AndroidManifest.xml`, y verificados dentro del AAB.
+> - Juego **publicado en producción** el 2026-08-30 (versionCode 5 / 1.3).
+> - App **enlazada con Google Play** en AdMob el 2026-09-09.
+> - `app-ads.txt` publicado y verificado (ver el final del documento).
+>
+> Queda solo esperar la **revisión de preparación** de AdMob, que es
+> automática. Lo que sigue se conserva como referencia de cómo se hizo
+> y para la próxima app; algunas frases describen el estado de agosto
+> (p. ej. "está hoy en prueba cerrada") y ya no son actuales.
+
+Guía para obtener los dos IDs reales y dejar los anuncios generando
+ingresos. Escrita en agosto de 2026.
 
 Datos que vas a necesitar a mano:
 
@@ -160,18 +174,31 @@ teléfono como dispositivo de prueba en AdMob.
 
 ---
 
-## Opcional: `app-ads.txt`
+## `app-ads.txt` — RESUELTO (2026-09-09)
 
-Es un archivo que declara quién está autorizado a vender tu inventario
-publicitario. No es obligatorio, pero sin él pierdes acceso a parte de
-la demanda programática.
+Al enlazar la app, AdMob intentó verificarla y falló: buscaba
+`app-ads.txt` en la **raíz del dominio** del sitio del desarrollador
+(`https://bduranalvarez-hub.github.io/app-ads.txt`) y ahí no había nada,
+porque el juego se sirve desde una *project page* en
+`/mine-cat-adventure/`.
 
-El problema en nuestro caso: Google lo busca en la **raíz del dominio**
-del sitio web del desarrollador, es decir
-`https://bduranalvarez-hub.github.io/app-ads.txt`, no dentro de
-`/mine-cat-adventure/`. Como el sitio actual es una *project page* de
-GitHub Pages, haría falta crear un repositorio llamado
-`bduranalvarez-hub.github.io` para servir la raíz del dominio.
+**Ojo:** ese fallo NO impide el enlace. AdMob confirmó que la
+información de las tiendas se actualizó correctamente; lo único que
+quedó sin verificar fue el archivo, que es opcional.
 
-Es un extra que puede esperar. Cuando quieras hacerlo, AdMob te da la
-línea exacta a poner en **Apps → Ver todas las apps → app-ads.txt**.
+La solución fue crear un repositorio llamado exactamente
+`bduranalvarez-hub.github.io` (GitHub solo sirve la raíz del dominio
+desde un repo con el nombre del dominio), con Pages apuntando a `main`
+/ `(root)` y un único archivo `app-ads.txt`:
+
+```
+google.com, pub-6167652699679734, DIRECT, f08c47fec0942fa0
+```
+
+El `pub-` coincide con el ID de editor de los IDs de AdMob del juego.
+Crear ese repo NO afecta al sitio del juego: las project pages
+conservan su ruta aunque exista una user page.
+
+Verificado servido: HTTP 200, `text/plain; charset=utf-8`, 59 bytes,
+final de línea LF y sin BOM. Un BOM o un CRLF son las dos causas
+habituales de que Google rastree el archivo y aun así lo invalide.
