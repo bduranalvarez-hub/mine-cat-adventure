@@ -869,3 +869,17 @@ body {
   max-width: 34ch;
   margin: 4px auto 10px;
 }
+
+/* "Toca para continuar" tras revivir. Centrado y sin captar el toque:
+   el toque tiene que llegar al manejador global que reanuda la partida. */
+.resume-hint {
+  position: fixed;
+  top: 40%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  pointer-events: none;
+  z-index: 6;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+}

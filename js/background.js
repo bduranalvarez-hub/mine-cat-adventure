@@ -49,12 +49,21 @@ const Background = (() => {
   const ORE_SHEET = { cols: 6, cellW: 197, cellH: 345 };
   const oreImg = new Image();
   let oreReady = false;
-  oreImg.onload = () => { oreReady = true; };
+  oreImg.onload = () => {
+    oreReady = true;
+    // Se hornea y se convierte todo en cuanto llega el arte, con el
+    // jugador todavía en el menú: nada de este trabajo debe caer a mitad
+    // de partida.
+    prepareTiles();
+  };
   oreImg.src = 'img/ores.png';
 
   let dust = [];
   const tiles = [];     // textura de roca horneada, por nivel
   const patterns = [];  // patrón repetible, por nivel
+  const tileBitmaps = []; // la misma textura como ImageBitmap (si hay soporte)
+  // Calidad baja: sin fundido entre minerales (ver setLowQuality).
+  let cheapTransitions = false;
   const glintSprites = []; // sprite de destello, por nivel
   let vignette = null;
   let vignetteKey = '';
@@ -77,13 +86,9 @@ const Background = (() => {
     fade = 1;
 
     // Se hornean todas las texturas por adelantado (una sola vez): así
-    // cruzar un umbral a mitad de partida nunca provoca un tirón. Si
-    // el arte aún no cargó, patternFor() las horneará al estar listo.
-    if (oreReady) {
-      for (let i = 0; i < ORE_TIERS.length; i += 1) {
-        if (!tiles[i]) tiles[i] = bakeRockTile(i);
-      }
-    }
+    // cruzar un umbral a mitad de partida nunca provoca un tirón. Si el
+    // arte aún no cargó, lo hará oreImg.onload al llegar.
+    prepareTiles();
   }
 
   function tierIndexFor(meters) {
@@ -156,15 +161,68 @@ const Background = (() => {
     return c;
   }
 
+  // Hornea todas las texturas y las convierte UNA vez en ImageBitmap.
+  //
+  // Por qué: en Android el juego se volvía injugable justo al llegar a
+  // los 100 m, donde cambia el mineral, y en el navegador del mismo móvil
+  // no. Tras el fundido, dibujar el nivel 1 cuesta lo mismo que el 0; lo
+  // único propio del nivel 1 era su patrón, que se creaba A MITAD de
+  // partida con createPattern desde un canvas fuera de pantalla. En el
+  // WebView un patrón así puede quedar fuera del camino rápido de la GPU
+  // y volver a subirse o rasterizarse por CPU en cada fotograma. Un
+  // ImageBitmap es una imagen inmutable que se sube a la GPU una sola vez.
+  function prepareTiles() {
+    if (!oreReady) return;
+    for (let i = 0; i < ORE_TIERS.length; i += 1) {
+      if (!tiles[i]) tiles[i] = bakeRockTile(i);
+    }
+    if (typeof createImageBitmap !== 'function') return; // se sigue con el canvas
+    ORE_TIERS.forEach((_, i) => {
+      if (tileBitmaps[i]) return;
+      createImageBitmap(tiles[i]).then((bmp) => {
+        tileBitmaps[i] = bmp;
+        patterns[i] = null; // se rehace desde el bitmap en ensurePatterns()
+      }).catch(() => { /* sin bitmap: vale el canvas */ });
+    });
+  }
+
+  function makePattern(ctx, source) {
+    try {
+      return ctx.createPattern(source, 'repeat');
+    } catch (err) {
+      return null;
+    }
+  }
+
+  // Crea el patrón de TODOS los niveles a la vez en el primer dibujo
+  // (menú o arranque), para que ningún nivel estrene el suyo al cruzar su
+  // umbral en plena carrera. false = no se pudo crear: no se reintenta en
+  // cada fotograma, que sería justo el tipo de coste que se quiere evitar.
+  function ensurePatterns(ctx) {
+    if (!oreReady) return;
+    for (let i = 0; i < ORE_TIERS.length; i += 1) {
+      if (patterns[i] || patterns[i] === false) continue;
+      if (!tiles[i]) tiles[i] = bakeRockTile(i);
+      let p = tileBitmaps[i] ? makePattern(ctx, tileBitmaps[i]) : null;
+      if (!p) p = makePattern(ctx, tiles[i]);
+      patterns[i] = p || false;
+    }
+  }
+
   function patternFor(ctx, tierIdx) {
     // El arte llega por red: hasta que cargue no hay textura (la pared
-    // muestra solo su gradiente) y se hornea en el primer frame listo.
+    // muestra solo su gradiente).
     if (!oreReady) return null;
-    if (!tiles[tierIdx]) tiles[tierIdx] = bakeRockTile(tierIdx);
-    if (!patterns[tierIdx]) {
-      patterns[tierIdx] = ctx.createPattern(tiles[tierIdx], 'repeat');
-    }
-    return patterns[tierIdx];
+    ensurePatterns(ctx);
+    return patterns[tierIdx] || null;
+  }
+
+  // En calidad baja (ver la calidad adaptativa de js/game.js) no hay
+  // fundido entre minerales: pintar dos texturas a pantalla completa con
+  // transparencia durante 1,4 s es justo lo que un móvil justo no aguanta.
+  // La textura cambia de golpe y el color de la pared sigue fundiéndose.
+  function setLowQuality(low) {
+    cheapTransitions = Boolean(low);
   }
 
   // Sprite de destello (se estampa con blending aditivo).
@@ -225,7 +283,9 @@ const Background = (() => {
     ctx.fillStyle = wallGradient(ctx, viewH);
     ctx.fillRect(0, 0, viewW, viewH);
 
-    const shownPattern = patternFor(ctx, shownTier);
+    // En calidad baja se pinta directamente el mineral nuevo, sin fundido.
+    const baseTier = cheapTransitions ? nextTier : shownTier;
+    const shownPattern = patternFor(ctx, baseTier);
     if (!shownPattern) return; // arte aún cargando: queda el gradiente
 
     const ox = -((worldX * 0.15) % TILE);
@@ -235,7 +295,7 @@ const Background = (() => {
     ctx.globalAlpha = 0.85;
     ctx.fillStyle = shownPattern;
     ctx.fillRect(-TILE, -TILE, viewW + TILE * 2, viewH + TILE * 2);
-    if (nextTier !== shownTier) {
+    if (nextTier !== shownTier && !cheapTransitions) {
       // El mineral nuevo aparece por encima del anterior.
       ctx.globalAlpha = 0.85 * fade;
       ctx.fillStyle = patternFor(ctx, nextTier);
@@ -283,7 +343,9 @@ const Background = (() => {
   }
 
   function drawGlints(ctx, worldX, camY, viewW, viewH, time) {
-    if (nextTier !== shownTier) {
+    if (cheapTransitions) {
+      drawGlintsForTier(ctx, nextTier, worldX, camY, viewW, viewH, time, 1);
+    } else if (nextTier !== shownTier) {
       drawGlintsForTier(ctx, shownTier, worldX, camY, viewW, viewH, time, 1 - fade);
       drawGlintsForTier(ctx, nextTier, worldX, camY, viewW, viewH, time, fade);
     } else {
@@ -461,5 +523,5 @@ const Background = (() => {
     drawPit(ctx, viewW, viewH);
   }
 
-  return { reset, draw, drawVignette };
+  return { reset, draw, drawVignette, setLowQuality };
 })();

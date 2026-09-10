@@ -27,6 +27,11 @@
     <span id="distance">0 m</span>
   </div>
 
+  <!-- Tras revivir con un anuncio la partida queda congelada hasta que el
+       jugador toque (ver resumeAfterRevive en js/game.js). Sin captar el
+       toque: tiene que llegar al manejador global que reanuda. -->
+  <p id="resume-hint" class="blink resume-hint hidden" data-i18n="tapToContinue">TOCA PARA CONTINUAR</p>
+
   <!-- Pantalla previa: separa REGISTRARSE de INGRESAR. Antes ambas
        cosas pasaban por el mismo formulario, así que un nombre mal
        tecleado creaba una cuenta nueva y vacía en vez de dar error.

@@ -16,6 +16,14 @@ const Game = (() => {
   let sparks = [];
   let lastShownMeters = -1;
 
+  // Hay un anuncio de revivir en pantalla. Mientras dura, la app queda
+  // tapada por la actividad del anuncio y puede disparar visibilitychange:
+  // sin esta marca eso liquidaba la partida y el revivir se perdía.
+  let reviveAdInProgress = false;
+  // Cuándo volvió a verse la página (p. ej. al cerrar un anuncio).
+  let lastVisibleAt = 0;
+  const UNFREEZE_GRACE_MS = 400;
+
   const dom = {};
 
   // --- Calidad adaptativa ------------------------------------------------
@@ -27,9 +35,14 @@ const Game = (() => {
   // La bajada es de un solo sentido y se recuerda: no se vuelve a subir,
   // para que la calidad no oscile en el borde del umbral, y la próxima
   // partida ya arranca ligera sin repetir la medición.
+  //
+  // La medición es CONTINUA, no solo al principio. Antes se decidía con
+  // los primeros ~2 s de la partida, y el caso real que la motivó -el
+  // juego se hundía al cruzar los 100 m, a los 3-4 s- caía justo
+  // después: ya había concluido "va bien" y no volvía a mirar.
   const KEY_QUALITY = 'mca-quality';
-  const FRAME_SAMPLES = 120;  // ~2 s a 60 fps
-  const FRAME_WARMUP = 30;    // los primeros fotogramas siempre son peores
+  const FRAME_WINDOW = 90;    // ~1,5 s a 60 fps; se mide ventana tras ventana
+  const FRAME_WARMUP = 30;    // tras empezar o reanudar, los primeros van peor
   const SLOW_FRAME_MS = 22;   // ~45 fps; por debajo de eso se nota
 
   function readQuality() {
@@ -42,8 +55,9 @@ const Game = (() => {
 
   let lowQuality = readQuality();
   let frameSamples = [];
-  // Si ya se decidió en una sesión anterior, no hace falta volver a medir.
-  let qualityDecided = lowQuality;
+  let warmupLeft = FRAME_WARMUP;
+  // El fondo tiene su propia versión barata (sin fundido entre minerales).
+  Background.setLowQuality(lowQuality);
 
   function setLowQuality() {
     if (lowQuality) return;
@@ -53,6 +67,7 @@ const Game = (() => {
     } catch (err) {
       /* sin almacenamiento: vale para esta sesión */
     }
+    Background.setLowQuality(true);
     resize();
   }
 
@@ -60,20 +75,31 @@ const Game = (() => {
   // Tiene que ser el crudo: el dt que usa la simulación está acotado a
   // 1/30 s, así que no distingue 30 fps de 5 y no serviría para medir.
   function reportFrame(ms) {
-    if (qualityDecided || !state || state.mode !== MODES.PLAYING) return;
+    // Congelada tras revivir no se está jugando: no hay carga que medir.
+    if (lowQuality || !state || state.mode !== MODES.PLAYING || state.frozen) return;
     // Descarta valores absurdos: pestaña en segundo plano, depurador
     // detenido o el primer fotograma tras volver de otra app.
     if (!Number.isFinite(ms) || ms <= 0 || ms > 1000) return;
+    if (warmupLeft > 0) {
+      warmupLeft -= 1;
+      return;
+    }
     frameSamples.push(ms);
-    if (frameSamples.length < FRAME_SAMPLES) return;
+    if (frameSamples.length < FRAME_WINDOW) return;
 
-    qualityDecided = true;
-    const utiles = frameSamples.slice(FRAME_WARMUP).sort((a, b) => a - b);
+    const orden = frameSamples.slice().sort((a, b) => a - b);
     frameSamples = [];
     // Mediana y no media: unos pocos tirones sueltos no deben condenar
     // a un dispositivo que por lo demás va fino.
-    const mediana = utiles[Math.floor(utiles.length / 2)];
+    const mediana = orden[Math.floor(orden.length / 2)];
     if (mediana > SLOW_FRAME_MS) setLowQuality();
+  }
+
+  // Tras empezar partida o reanudar después de un anuncio, los primeros
+  // fotogramas no son representativos: se descartan y se abre ventana nueva.
+  function restartFrameMeasure() {
+    frameSamples = [];
+    warmupLeft = FRAME_WARMUP;
   }
 
   function loadBest(storageKey) {
@@ -110,6 +136,10 @@ const Game = (() => {
       settled: false,
       // Ya se usó el revivir de esta partida (uno por carrera).
       revived: false,
+      // Tras revivir la partida queda quieta hasta que el jugador toque
+      // (ver resumeAfterRevive). frozenAt sirve para el periodo de gracia.
+      frozen: false,
+      frozenAt: 0,
       // Distancia de la PRIMERA muerte. Es la que vale como marca:
       // récord local y ranking mundial. Lo que se corra después de
       // revivir suma monedas pero NO puntúa, porque si no la tabla
@@ -200,6 +230,7 @@ const Game = (() => {
       'revive', 'rv-title', 'rv-distance', 'rv-desc', 'rv-note', 'rv-yes', 'rv-no',
       'go-total',
       'coin-plus',
+      'resume-hint',
     ].forEach((id) => {
       dom[id] = document.getElementById(id);
     });
@@ -303,6 +334,7 @@ const Game = (() => {
     // el bucle se detiene y esa carrera se quedaría sin cobrar.
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') settleIfDead();
+      else lastVisibleAt = performance.now();
     });
     window.addEventListener('pagehide', settleIfDead);
 
@@ -870,6 +902,7 @@ const Game = (() => {
     state = createState(MODES.MENU);
     dom.gameover.classList.add('hidden');
     dom.revive.classList.add('hidden');
+    dom['resume-hint'].classList.add('hidden');
     dom.ranking.classList.add('hidden');
     dom.shop.classList.add('hidden');
     dom.login.classList.add('hidden');
@@ -902,10 +935,12 @@ const Game = (() => {
     if (typeof Ads !== 'undefined') Ads.setPreloadAllowed(false);
     state = createState(MODES.PLAYING);
     sparks = [];
+    restartFrameMeasure();
     lastShownMeters = -1;
     dom.menu.classList.add('hidden');
     dom.gameover.classList.add('hidden');
     dom.revive.classList.add('hidden');
+    dom['resume-hint'].classList.add('hidden');
     dom['go-record'].classList.add('hidden');
     dom['go-coins'].classList.add('hidden');
     dom['go-retry'].classList.add('hidden');
@@ -988,7 +1023,13 @@ const Game = (() => {
     dom['rv-yes'].disabled = true;
     dom['rv-yes'].textContent = I18n.t('reviveLoading');
 
-    const res = await Ads.showRewarded();
+    reviveAdInProgress = true;
+    let res;
+    try {
+      res = await Ads.showRewarded();
+    } finally {
+      reviveAdInProgress = false;
+    }
     // Entre la petición y la respuesta el jugador pudo salirse (tocar
     // "no gracias", cerrar la app). Si la oferta ya no está, no se
     // resucita una partida que el jugador dio por terminada.
@@ -1059,6 +1100,27 @@ const Game = (() => {
     // Cámara al sitio nuevo de golpe: sin esto entra deslizándose desde
     // donde quedó el cuerpo al caer.
     updateCamera(1);
+
+    // CONGELADA hasta que el jugador toque. El plugin de AdMob resuelve la
+    // recompensa cuando se GANA, no cuando se cierra el anuncio: el vídeo
+    // sigue en pantalla unos segundos más. Si la partida arrancaba aquí,
+    // la vagoneta corría sin que el jugador pudiera ver ni tocar nada y
+    // caía en el siguiente hueco. Así, pase lo que pase con el anuncio,
+    // nada se mueve hasta que el jugador está listo.
+    state.frozen = true;
+    state.frozenAt = performance.now();
+    dom['resume-hint'].classList.remove('hidden');
+  }
+
+  function tryUnfreeze() {
+    // Gracia desde que se congeló o desde que la app volvió a verse:
+    // evita que un toque residual al cerrar el anuncio arranque la
+    // partida sin querer.
+    const since = Math.max(state.frozenAt, lastVisibleAt);
+    if (performance.now() - since < UNFREEZE_GRACE_MS) return;
+    state.frozen = false;
+    dom['resume-hint'].classList.add('hidden');
+    restartFrameMeasure();
   }
 
   // Red de seguridad: si el jugador manda la app a segundo plano o la
@@ -1067,6 +1129,10 @@ const Game = (() => {
   // estaba muerto; en pleno juego no hay nada que cerrar.
   function settleIfDead() {
     if (!state || state.mode !== MODES.DEAD) return;
+    // Con el anuncio de revivir en pantalla la app queda tapada y puede
+    // pasar a oculta: eso NO es abandonar la partida. Si se liquidara
+    // aquí, al volver del anuncio ya no habría nada que revivir.
+    if (reviveAdInProgress) return;
     // Si la oferta de revivir seguía en pantalla, se retira: la partida
     // queda cobrada y resucitarla al volver duplicaría el pago.
     if (reviveOfferOpen()) {
@@ -1161,6 +1227,12 @@ const Game = (() => {
       return; // en el menú se elige modo con los botones
     }
     if (state.mode === MODES.PLAYING) {
+      // Tras revivir, el primer toque solo reanuda: saltar a la vez
+      // sorprendería justo cuando el jugador recupera el control.
+      if (state.frozen) {
+        tryUnfreeze();
+        return;
+      }
       if (Player.jump(state.player)) GameAudio.jump();
       return;
     }
@@ -1174,7 +1246,7 @@ const Game = (() => {
 
   // Al soltar el toque/tecla: recorta el salto en curso.
   function handleRelease() {
-    if (state.mode === MODES.PLAYING) {
+    if (state.mode === MODES.PLAYING && !state.frozen) {
       Player.jumpCut(state.player);
     }
   }
@@ -1304,7 +1376,7 @@ const Game = (() => {
 
   function update(dt) {
     state.time += dt;
-    if (state.mode === MODES.PLAYING) updatePlaying(dt);
+    if (state.mode === MODES.PLAYING && !state.frozen) updatePlaying(dt);
     if (state.mode === MODES.DEAD) updateDead(dt);
     updateSparks(dt);
   }
@@ -1347,6 +1419,7 @@ const Game = (() => {
       playerWorldY: state.player.worldY,
       onRail: state.player.onRail,
       lowQuality,
+      frozen: state.frozen,
       playerSlope: Track.slopeAt(state.track, state.worldX + playerX),
       segments: state.track.segments.slice(),
       obstacles: state.obstacles.list.map((o) => ({
