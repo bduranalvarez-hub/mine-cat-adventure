@@ -97,5 +97,6 @@ const Version = (() => {
     }
   }
 
-  return { check, dismiss, isNative, LOCAL };
+  // PLAY_URL también lo usa js/share.js para el enlace al compartir.
+  return { check, dismiss, isNative, LOCAL, PLAY_URL };
 })();

@@ -221,9 +221,17 @@ const Share = (() => {
     a.remove();
   }
 
-  // Enlace al juego (origen + ruta, sin query ni hash) para que quien
-  // reciba la puntuación pueda entrar a jugar directamente.
+  // Enlace al juego para que quien reciba la puntuación pueda entrar a
+  // jugar directamente.
+  //
+  // En la app nativa NO sirve la dirección de la página: el WebView de
+  // Capacitor sirve los archivos desde https://localhost/, así que se
+  // compartía un enlace muerto. Ahí va la ficha de Google Play. En web sí
+  // vale el origen + ruta (sin query ni hash) del juego en el navegador.
   function gameUrl() {
+    if (isNativeApp() && typeof Version !== 'undefined' && Version.PLAY_URL) {
+      return Version.PLAY_URL;
+    }
     try {
       return location.origin + location.pathname;
     } catch (err) {
