@@ -1129,14 +1129,17 @@ const Game = (() => {
     // resucita una partida que el jugador dio por terminada.
     if (!reviveOfferOpen()) return;
 
-    if (!res || !res.ok) {
+    // Basta con que el SDK confirme el anuncio completo. Si el servidor no
+    // lo registra (tope diario de anuncios, sin conexión), el jugador igual
+    // lo vio entero: negarle el revivir sería injusto. El tope solo limita
+    // monedas y épicas. Revivir sigue siendo una vez por carrera.
+    if (!res || !(res.ok || res.rewarded)) {
       // No se castiga con el fin de la partida: se explica y se deja
       // decidir otra vez. Salvo con el tope diario, donde reintentar
       // no serviría de nada.
       const code = res ? res.code : 'no_disponible';
-      dom['rv-note'].textContent = I18n.t(
-        code === 'limite_diario' ? 'adLimit' : 'adFail'
-      );
+      const msg = { limite_diario: 'adLimit', sin_recompensa: 'adSkipped' };
+      dom['rv-note'].textContent = I18n.t(msg[code] || 'adFail');
       dom['rv-yes'].textContent = I18n.t('reviveBtn');
       dom['rv-yes'].disabled = code === 'limite_diario';
       return;

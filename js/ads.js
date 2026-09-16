@@ -91,6 +91,11 @@ const Ads = (() => {
   // "mostrando" para siempre: sin más anuncios en esa sesión. El evento de
   // cierre desbloquea esa espera.
   let onDismissed = null;
+  // Tras el cierre se espera un poco por la recompensa: en el móvil de un
+  // tester (1.10), con algunos anuncios el aviso de cierre llegaba ANTES
+  // que el de recompensa, y dar el anuncio por no visto dejaba sin revivir
+  // a quien lo había visto entero.
+  const REWARD_GRACE_MS = 2500;
   function listenDismissed(p) {
     if (typeof p.addListener !== 'function') return;
     try {
@@ -165,11 +170,12 @@ const Ads = (() => {
     let reward = null;
     try {
       const closed = new Promise((resolve) => {
-        onDismissed = () => resolve(null);
+        onDismissed = () => setTimeout(() => resolve(null), REWARD_GRACE_MS);
       });
-      // La recompensa siempre llega ANTES del cierre, así que ganar no se
-      // pierde. Cerrar antes de tiempo resuelve con null.
+      // Gana la recompensa si llega (antes del cierre o durante la espera
+      // posterior). Cerrar antes de tiempo resuelve con null.
       reward = await Promise.race([p.showRewardVideoAd(), closed]);
+      if (reward && typeof Diag !== 'undefined') Diag.log('ad-reward');
     } catch (err) {
       // Un fallo al mostrar llega como excepción (el cierre anticipado
       // llega por el evento, ver listenDismissed).
@@ -188,10 +194,15 @@ const Ads = (() => {
 
     // Vista confirmada: que el servidor la registre y decida si toca
     // desbloquear alguna épica.
+    // rewarded: el SDK confirmó el anuncio completo, pase lo que pase luego
+    // en el servidor. Revivir se conforma con eso (ver game.js); las
+    // monedas y las épicas siguen exigiendo ok del servidor.
     if (typeof Account === 'undefined') {
-      return { ok: false, code: 'no_autorizado' };
+      return { ok: false, rewarded: true, code: 'no_autorizado' };
     }
-    return Account.watchAd();
+    const res = await Account.watchAd();
+    if (!res.ok && typeof Diag !== 'undefined') Diag.log(`servidor: ${res.code}`);
+    return { ...res, rewarded: true };
   }
 
   function diagInfo() {
