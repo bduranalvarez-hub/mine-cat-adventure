@@ -12,6 +12,10 @@
   // el juego sigue igual, sin ofrecer revivir ni anuncios en la tienda.
   Ads.init();
 
+  // Orientación guardada (vertical u horizontal). Solo hace algo en la
+  // app nativa y no bloquea el arranque.
+  Orientation.apply();
+
   window.addEventListener('resize', () => Game.resize());
   window.addEventListener('orientationchange', () => {
     setTimeout(() => Game.resize(), 250);

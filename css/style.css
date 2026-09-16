@@ -883,3 +883,13 @@ body {
   z-index: 6;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
 }
+
+/* Icono del botón de orientación: el mismo móvil, girado cuando el
+   juego está en horizontal. */
+.orient-icon {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+.orient-icon.landscape {
+  transform: rotate(90deg);
+}

@@ -92,6 +92,10 @@
               style="right:calc(max(2cqw, 50cqw - 50vw + 10px));top:max(1.9cqw, env(safe-area-inset-top))">🌐</button>
       <button id="btn-music" class="icon-btn2"
               style="right:calc(max(2cqw, 50cqw - 50vw + 10px) + 9.4cqw);top:max(1.9cqw, env(safe-area-inset-top))">🔊</button>
+      <!-- Orientación vertical/horizontal. Solo en la app nativa: en web se
+           oculta (ver Orientation.available()). -->
+      <button id="btn-orientation" class="icon-btn2 hidden"
+              style="right:calc(max(2cqw, 50cqw - 50vw + 10px) + 18.8cqw);top:max(1.9cqw, env(safe-area-inset-top))"><span id="orientation-icon" class="orient-icon">📱</span></button>
       <button id="btn-logout" class="player-pill" style="left:27%;top:31.2%;width:46%;height:3.2%">
         <span data-i18n="playerPrefix">Minero:</span>&nbsp;<strong id="player-name"></strong>&nbsp;<u data-i18n="change">cambiar</u>
       </button>
@@ -186,6 +190,7 @@
   <script src="js/obstacles.js"></script>
   <script src="js/player.js"></script>
   <script src="js/version.js"></script>
+  <script src="js/orientation.js"></script>
   <script src="js/game.js"></script>
   <script src="js/main.js"></script>
 </body>

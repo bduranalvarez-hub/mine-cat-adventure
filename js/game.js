@@ -229,6 +229,7 @@ const Game = (() => {
       'best-normal', 'best-hard', 'best-hardcore',
       'player-name', 'nick', 'pin', 'login-error', 'btn-login', 'guest-notice',
       'btn-music', 'menu-coin-balance', 'btn-add-coins',
+      'btn-orientation', 'orientation-icon',
       'shop', 'shop-list', 'shop-coins', 'shop-daily', 'menu-coins',
       'shop-redeem', 'redeem-input', 'btn-redeem', 'redeem-status',
       'revive', 'rv-title', 'rv-distance', 'rv-desc', 'rv-note', 'rv-yes', 'rv-no',
@@ -317,6 +318,7 @@ const Game = (() => {
     wireButton('tab-hard', () => showRanking('hard'));
     wireButton('tab-hardcore', () => showRanking('hardcore'));
     wireButton('btn-music', toggleMusic);
+    wireButton('btn-orientation', toggleOrientation);
     wireButton('btn-lang', () => I18n.toggle());
     // La recompensa por anuncio aún no está implementada: solo avisa.
     wireButton('btn-add-coins', verAnuncioPorMonedas);
@@ -360,6 +362,7 @@ const Game = (() => {
   // Vuelve a pintar los textos dinámicos según el idioma actual.
   function refreshDynamicText() {
     updateMusicButton();
+    updateOrientationButton();
     updateCoinsUI();
     if (dom.menu && !dom.menu.classList.contains('hidden')) {
       updateMenuBest();
@@ -850,6 +853,31 @@ const Game = (() => {
     Music.setEnabled(!Music.isEnabled());
     if (Music.isEnabled()) Music.start(Modes.get().musicTempo);
     updateMusicButton();
+  }
+
+  async function toggleOrientation() {
+    await Orientation.toggle();
+    updateOrientationButton();
+    // El evento de resize llega solo al girar, pero en algunos WebView
+    // tarda: se fuerza un reajuste cuando la rotación ya se aplicó.
+    setTimeout(resize, 300);
+  }
+
+  // Botón de orientación: el móvil del icono se muestra girado cuando
+  // está en horizontal, como el 🔊/🔇 de la música. Oculto en web, donde
+  // no se puede fijar la orientación.
+  function updateOrientationButton() {
+    const btn = dom['btn-orientation'];
+    if (!btn) return;
+    const disponible = typeof Orientation !== 'undefined' && Orientation.available();
+    btn.classList.toggle('hidden', !disponible);
+    if (!disponible) return;
+    const horizontal = Orientation.get() === Orientation.LANDSCAPE;
+    dom['orientation-icon'].classList.toggle('landscape', horizontal);
+    // El título dice lo que HACE el botón, no el estado actual.
+    const accion = I18n.t(horizontal ? 'orientToPortrait' : 'orientToLandscape');
+    btn.title = accion;
+    btn.setAttribute('aria-label', accion);
   }
 
   // El botón de música es un icono HTML sobre el arte: refleja el
