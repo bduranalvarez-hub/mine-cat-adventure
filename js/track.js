@@ -182,11 +182,44 @@ const Track = (() => {
   const BACK_DX = 5;
   const BACK_DY = -12;
 
+  // Modo ultraligero (ver game.js): la vía con menos pasadas de trazo.
+  let cheap = false;
+  function setCheap(value) {
+    cheap = Boolean(value);
+  }
+
+  function drawRailCheap(ctx, track, worldX, camY, x0, x1, front, back) {
+    ctx.strokeStyle = '#2c2c34';
+    ctx.lineWidth = 7;
+    ctx.stroke(back);
+    const tieSpacing = 46;
+    ctx.strokeStyle = '#3a2510';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    for (let x = Math.ceil(x0 / tieSpacing) * tieSpacing; x < x1; x += tieSpacing) {
+      const sx = x - worldX;
+      const sy = heightAt(track, x) - camY;
+      ctx.moveTo(sx + BACK_DX + 2, sy + BACK_DY - 4);
+      ctx.lineTo(sx - 2, sy + 4);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = '#1d1d24';
+    ctx.lineWidth = 12;
+    ctx.stroke(front);
+    ctx.strokeStyle = '#8a8a9a';
+    ctx.lineWidth = 6.5;
+    ctx.stroke(front);
+  }
+
   function drawRail(ctx, track, worldX, camY, x0, x1) {
     const front = buildRailPath(track, worldX, camY, x0, x1, 0, 0);
     const back = buildRailPath(track, worldX, camY, x0, x1, BACK_DX, BACK_DY);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    if (cheap) {
+      drawRailCheap(ctx, track, worldX, camY, x0, x1, front, back);
+      return;
+    }
 
     // Riel trasero (más fino y oscuro).
     ctx.strokeStyle = '#1d1d24';
@@ -313,6 +346,6 @@ const Track = (() => {
   return {
     create, extend, prune, heightAt, slopeAt,
     hasRailAt, hasRailAround, railLeftEdgeAt, railRightEdgeLeftOf, draw,
-    clearRunway,
+    clearRunway, setCheap,
   };
 })();

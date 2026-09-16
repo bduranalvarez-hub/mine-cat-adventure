@@ -63,9 +63,12 @@ const Sprites = (() => {
     const h = rec.h * s;
     const bottom = CHAR_BOTTOM_Y + (entry.dy || 0) + (extraDy || 0);
     ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.32)';
-    ctx.shadowBlur = 5;
-    ctx.shadowOffsetY = 4;
+    // La sombra difuminada es de lo más caro de pintar sin GPU.
+    if (!cheap) {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.32)';
+      ctx.shadowBlur = 5;
+      ctx.shadowOffsetY = 4;
+    }
     ctx.drawImage(rec.img, -w / 2 + (entry.dx || 0), bottom - h, w, h);
     ctx.restore();
   }
@@ -367,5 +370,11 @@ const Sprites = (() => {
     stamp(ctx, wreckSprite(Math.floor((seed * 10) % 3)), x, y);
   }
 
-  return { drawPlayer, drawEnemy, drawWreck };
+  // Modo ultraligero (ver game.js): sin sombras difuminadas.
+  let cheap = false;
+  function setCheap(value) {
+    cheap = Boolean(value);
+  }
+
+  return { drawPlayer, drawEnemy, drawWreck, setCheap };
 })();

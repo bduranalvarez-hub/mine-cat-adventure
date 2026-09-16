@@ -135,6 +135,32 @@ const Diag = (() => {
     } catch (err) { /* no soportado: se queda en 0 */ }
   }
 
+  // ¿Qué pinta el WebView? Crea un contexto WebGL de prueba y lee el nombre
+  // del renderizador: "SwiftShader" o sin WebGL significa que se quedó sin
+  // GPU. Es caro, así que se consulta como mucho cada 10 s y el contexto se
+  // libera en el acto.
+  const GPU_PROBE_MS = 10000;
+  let gpuName = '-';
+  let gpuProbedAt = -Infinity;
+  function probeGpu() {
+    if (now() - gpuProbedAt < GPU_PROBE_MS) return gpuName;
+    gpuProbedAt = now();
+    try {
+      const gl = document.createElement('canvas').getContext('webgl');
+      if (!gl) {
+        gpuName = 'SIN WEBGL';
+      } else {
+        const ext = gl.getExtension('WEBGL_debug_renderer_info');
+        gpuName = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'webgl (sin nombre)';
+        const lose = gl.getExtension('WEBGL_lose_context');
+        if (lose) lose.loseContext();
+      }
+    } catch (err) {
+      gpuName = 'error';
+    }
+    return gpuName;
+  }
+
   function median(values) {
     if (!values.length) return 0;
     const s = values.slice().sort((a, b) => a - b);
@@ -181,7 +207,8 @@ const Diag = (() => {
     const lines = [
       `fps ${lastFps}  mediana ${fmt(med)} ms  peor ${fmt(peor)} ms`,
       `juego ${fmt(juego)} ms (upd ${fmt(avg(up))} / dib ${fmt(avg(rd))})  fuera ${fmt(fuera)} ms`,
-      `lienzo ${g.canvas || '-'}  dpr ${g.dpr || '-'}  calidad ${g.lowQuality ? 'BAJA' : 'alta'}`,
+      `lienzo ${g.canvas || '-'}  dpr ${g.dpr || '-'}  calidad ${g.ultraLow ? 'ULTRA' : (g.lowQuality ? 'BAJA' : 'alta')}`,
+      `gpu ${probeGpu().slice(0, 48)}`,
       `ctx perdido ${g.contextLost ? 'SÍ' : 'no'}  refrescos ${counters.surfaceRefresh}  modo ${g.mode || '-'}`,
       `anuncios vistos ${counters.adsShown}  cerrados ${counters.adsDismissed}  cargado ${a.loaded ? 'sí' : 'no'}  mostrando ${a.showing ? 'sí' : 'no'}`,
       `música ${m.state || '-'} timer ${m.timer ? 'sí' : 'no'} atraso ${fmt(m.lag)} s  nodos/s ${m.nodesPerSec == null ? '-' : m.nodesPerSec}`,

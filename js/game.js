@@ -51,6 +51,7 @@ const Game = (() => {
   const FRAME_WINDOW = 90;    // ~1,5 s a 60 fps; se mide ventana tras ventana
   const FRAME_WARMUP = 30;    // tras empezar o reanudar, los primeros van peor
   const SLOW_FRAME_MS = 22;   // ~45 fps; por debajo de eso se nota
+  const VERY_SLOW_FRAME_MS = 45; // ~22 fps: se salta directo al ultraligero
 
   function readQuality() {
     try {
@@ -66,6 +67,26 @@ const Game = (() => {
   // El fondo tiene su propia versión barata (sin fundido entre minerales).
   Background.setLowQuality(lowQuality);
 
+  // Segundo escalón, solo para ESTA sesión: dibujar a media resolución y
+  // sin efectos caros (degradados, sombras, destellos). Existe por lo que
+  // midió el panel de diagnóstico en un móvil real: tras el segundo
+  // anuncio, el WebView se quedaba sin GPU para toda la sesión. El juego
+  // seguía tardando solo 2 ms por fotograma, pero el navegador tardaba
+  // 70 ms en pintarlo por CPU (unos 15 fps), y rehacer el lienzo no lo
+  // recuperaba. No se guarda: al reabrir la app vuelve la GPU.
+  let ultraLow = false;
+  const ULTRA_RENDER_SCALE = 0.5;
+
+  function setUltraLow() {
+    if (ultraLow) return;
+    ultraLow = true;
+    Background.setUltraLow(true);
+    Sprites.setCheap(true);
+    Track.setCheap(true);
+    Diag.log('ultraligero');
+    resize();
+  }
+
   function setLowQuality() {
     if (lowQuality) return;
     lowQuality = true;
@@ -75,6 +96,7 @@ const Game = (() => {
       /* sin almacenamiento: vale para esta sesión */
     }
     Background.setLowQuality(true);
+    Diag.log('calidad-baja');
     resize();
   }
 
@@ -83,7 +105,7 @@ const Game = (() => {
   // 1/30 s, así que no distingue 30 fps de 5 y no serviría para medir.
   function reportFrame(ms) {
     // Congelada tras revivir no se está jugando: no hay carga que medir.
-    if (lowQuality || !state || state.mode !== MODES.PLAYING || state.frozen) return;
+    if (ultraLow || !state || state.mode !== MODES.PLAYING || state.frozen) return;
     // Descarta valores absurdos: pestaña en segundo plano, depurador
     // detenido o el primer fotograma tras volver de otra app.
     if (!Number.isFinite(ms) || ms <= 0 || ms > 1000) return;
@@ -99,7 +121,18 @@ const Game = (() => {
     // Mediana y no media: unos pocos tirones sueltos no deben condenar
     // a un dispositivo que por lo demás va fino.
     const mediana = orden[Math.floor(orden.length / 2)];
-    if (mediana > SLOW_FRAME_MS) setLowQuality();
+    if (mediana <= SLOW_FRAME_MS) return;
+    // Primero se baja la densidad; si aun así no alcanza, el ultraligero.
+    // Muy lento (el caso sin GPU tras un anuncio) va directo a los dos.
+    if (mediana > VERY_SLOW_FRAME_MS) {
+      setLowQuality();
+      setUltraLow();
+    } else if (lowQuality) {
+      setUltraLow();
+    } else {
+      setLowQuality();
+    }
+    restartFrameMeasure();
   }
 
   // Tras empezar partida o reanudar después de un anuncio, los primeros
@@ -903,6 +936,7 @@ const Game = (() => {
       canvas: canvas ? `${canvas.width}x${canvas.height}` : '-',
       dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
       lowQuality,
+      ultraLow,
       contextLost: Boolean(ctx && typeof ctx.isContextLost === 'function' && ctx.isContextLost()),
       mode: state ? state.mode : '-',
     };
@@ -912,7 +946,9 @@ const Game = (() => {
     // En calidad baja se dibuja a densidad 1: en una pantalla de dpr 2
     // son la cuarta parte de píxeles. Se ve algo menos nítido, pero es
     // la diferencia entre injugable y fluido. Ver reportFrame().
-    const dpr = Math.min(window.devicePixelRatio || 1, lowQuality ? 1 : 2);
+    const dpr = ultraLow
+      ? ULTRA_RENDER_SCALE
+      : Math.min(window.devicePixelRatio || 1, lowQuality ? 1 : 2);
     const w = Math.floor(canvas.clientWidth * dpr);
     const h = Math.floor(canvas.clientHeight * dpr);
     // Si el layout todavía no ha dado tamaño -un WebView que mide tarde,

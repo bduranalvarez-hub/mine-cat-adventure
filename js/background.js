@@ -64,6 +64,7 @@ const Background = (() => {
   const tileBitmaps = []; // la misma textura como ImageBitmap (si hay soporte)
   // Calidad baja: sin fundido entre minerales (ver setLowQuality).
   let cheapTransitions = false;
+  let ultraLow = false; // sin degradados, destellos ni brillos (ver game.js)
   const glintSprites = []; // sprite de destello, por nivel
   let vignette = null;
   let vignetteKey = '';
@@ -280,6 +281,21 @@ const Background = (() => {
   }
 
   function drawWall(ctx, worldX, camY, viewW, viewH) {
+    if (ultraLow) {
+      // Color liso en vez de degradado y la textura encima, más tenue que
+      // en calidad normal (sin la viñeta ni el pozo, que la oscurecían).
+      ctx.fillStyle = `rgb(${ORE_TIERS[nextTier].wall[2].join(',')})`;
+      ctx.fillRect(0, 0, viewW, viewH);
+      const p = patternFor(ctx, nextTier);
+      if (!p) return;
+      ctx.save();
+      ctx.translate(-((worldX * 0.15) % TILE), -((camY * 0.2) % TILE));
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = p;
+      ctx.fillRect(-TILE, -TILE, viewW + TILE * 2, viewH + TILE * 2);
+      ctx.restore();
+      return;
+    }
     ctx.fillStyle = wallGradient(ctx, viewH);
     ctx.fillRect(0, 0, viewW, viewH);
 
@@ -343,6 +359,7 @@ const Background = (() => {
   }
 
   function drawGlints(ctx, worldX, camY, viewW, viewH, time) {
+    if (ultraLow) return;
     if (cheapTransitions) {
       drawGlintsForTier(ctx, nextTier, worldX, camY, viewW, viewH, time, 1);
     } else if (nextTier !== shownTier) {
@@ -370,6 +387,8 @@ const Background = (() => {
       ctx.lineTo(viewW, y);
     }
     ctx.stroke();
+    // Ultraligero: solo los tablones, sin vetas ni pernos (muchos trazos).
+    if (ultraLow) return;
 
     // Borde iluminado y veta de cada tablón.
     ctx.strokeStyle = 'rgba(96, 58, 28, 0.5)';
@@ -442,13 +461,15 @@ const Background = (() => {
         const flick = 0.75 + 0.25 * Math.sin(time * 7 + col * 13.7 + row * 5.3);
         const lx = x + 13;
         const ly = y + 42;
-        const glow = ctx.createRadialGradient(lx, ly, 2, lx, ly, 60 * flick);
-        glow.addColorStop(0, 'rgba(255, 190, 90, 0.32)');
-        glow.addColorStop(1, 'rgba(255, 160, 60, 0)');
-        ctx.fillStyle = glow;
-        ctx.beginPath();
-        ctx.arc(lx, ly, 60 * flick, 0, Math.PI * 2);
-        ctx.fill();
+        if (!ultraLow) {
+          const glow = ctx.createRadialGradient(lx, ly, 2, lx, ly, 60 * flick);
+          glow.addColorStop(0, 'rgba(255, 190, 90, 0.32)');
+          glow.addColorStop(1, 'rgba(255, 160, 60, 0)');
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(lx, ly, 60 * flick, 0, Math.PI * 2);
+          ctx.fill();
+        }
         // Cadena y cuerpo del farol.
         ctx.strokeStyle = 'rgba(20, 12, 6, 0.9)';
         ctx.lineWidth = 2;
@@ -475,6 +496,10 @@ const Background = (() => {
       }
       if (p.y < -5) p.y = viewH + 5;
       if (p.y > viewH + 5) p.y = -5;
+      if (ultraLow) {
+        ctx.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+        return;
+      }
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
       ctx.fill();
@@ -483,6 +508,7 @@ const Background = (() => {
 
   // Oscuridad al fondo del pozo, en la parte baja de la pantalla.
   function drawPit(ctx, viewW, viewH) {
+    if (ultraLow) return;
     const top = viewH * 0.72;
     const grad = ctx.createLinearGradient(0, top, 0, viewH);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
@@ -508,6 +534,7 @@ const Background = (() => {
   }
 
   function drawVignette(ctx, viewW, viewH) {
+    if (ultraLow) return;
     ctx.fillStyle = vignetteFor(ctx, viewW, viewH);
     ctx.fillRect(0, 0, viewW, viewH);
   }
@@ -523,6 +550,10 @@ const Background = (() => {
     drawPit(ctx, viewW, viewH);
   }
 
+  function setUltraLow(value) {
+    ultraLow = Boolean(value);
+  }
+
   // Descarta los patrones y bitmaps para crearlos de nuevo en el
   // siguiente dibujo, sobre la superficie actual del lienzo. Los mosaicos
   // horneados (canvas) se conservan: no dependen de la GPU.
@@ -535,5 +566,5 @@ const Background = (() => {
     prepareTiles();
   }
 
-  return { reset, draw, drawVignette, setLowQuality, invalidate };
+  return { reset, draw, drawVignette, setLowQuality, setUltraLow, invalidate };
 })();
