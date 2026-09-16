@@ -934,3 +934,33 @@ body {
     padding: 8px 20px;
   }
 }
+
+/* Panel de diagnóstico (js/diag.js). Oculto salvo que se active a mano.
+   No capta toques, salvo su propio botón, para no estorbar al juego. */
+.diag-panel {
+  position: fixed;
+  left: max(4px, env(safe-area-inset-left));
+  bottom: max(4px, env(safe-area-inset-bottom));
+  z-index: 50;
+  max-width: min(96vw, 560px);
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #9dff9d;
+  pointer-events: none;
+}
+.diag-panel pre {
+  margin: 0;
+  font: 11px/1.3 ui-monospace, Consolas, monospace;
+  white-space: pre-wrap;
+}
+.diag-btn {
+  pointer-events: auto;
+  margin-top: 4px;
+  padding: 4px 8px;
+  font: 12px ui-monospace, Consolas, monospace;
+  color: #000;
+  background: #9dff9d;
+  border: 0;
+  border-radius: 4px;
+}

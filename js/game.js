@@ -320,6 +320,9 @@ const Game = (() => {
     wireButton('tab-hardcore', () => showRanking('hardcore'));
     wireButton('btn-music', toggleMusic);
     wireButton('btn-orientation', toggleOrientation);
+    // Mantener pulsada una zona vacía del menú (el logo) abre el panel de
+    // diagnóstico. Los botones no llegan aquí: detienen su pointerdown.
+    Diag.attachLongPress(window, () => !dom.menu.classList.contains('hidden'));
     wireButton('btn-lang', () => I18n.toggle());
     // La recompensa por anuncio aún no está implementada: solo avisa.
     wireButton('btn-add-coins', verAnuncioPorMonedas);
@@ -894,6 +897,17 @@ const Game = (() => {
     dom['btn-music'].textContent = Music.isEnabled() ? '🔊' : '🔇';
   }
 
+  // Datos para el panel de diagnóstico (js/diag.js).
+  function diagInfo() {
+    return {
+      canvas: canvas ? `${canvas.width}x${canvas.height}` : '-',
+      dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
+      lowQuality,
+      contextLost: Boolean(ctx && typeof ctx.isContextLost === 'function' && ctx.isContextLost()),
+      mode: state ? state.mode : '-',
+    };
+  }
+
   function resize() {
     // En calidad baja se dibuja a densidad 1: en una pantalla de dpr 2
     // son la cuarta parte de píxeles. Se ve algo menos nítido, pero es
@@ -1175,6 +1189,7 @@ const Game = (() => {
   // aunque el tamaño sea el mismo. Las texturas del fondo se rehacen
   // también, porque las viejas pertenecían a la superficie anterior.
   function refreshSurface() {
+    Diag.log('surface');
     resize();
     Background.invalidate();
   }
@@ -1496,7 +1511,7 @@ const Game = (() => {
   }
 
   return {
-    setup, resize, handleAction, handleRelease, start, update, render,
+    diagInfo, setup, resize, handleAction, handleRelease, start, update, render,
     reportFrame, debugState,
   };
 })();

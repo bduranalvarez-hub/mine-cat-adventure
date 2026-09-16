@@ -26,6 +26,9 @@ const Music = (() => {
   let step = 0;
   let tempo = 112;
   let enabled = true;
+  let nodesCreated = 0;       // para el panel de diagnóstico
+  let nodesMark = { t: 0, n: 0, rate: null };
+  let resumeOnVisible = false;
 
   try {
     enabled = localStorage.getItem(STORAGE_KEY) !== '0';
@@ -49,6 +52,7 @@ const Music = (() => {
   }
 
   function note(freq, time, duration, type, volume) {
+    nodesCreated += 2;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = type;
@@ -61,6 +65,7 @@ const Music = (() => {
   }
 
   function hat(time, volume) {
+    nodesCreated += 3;
     const len = Math.floor(ctx.sampleRate * 0.03);
     const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -98,6 +103,10 @@ const Music = (() => {
   function schedulerTick() {
     if (!ctx) return;
     const stepLen = 60 / tempo / 4;
+    // Si el temporizador estuvo parado (app tapada por un anuncio) y el
+    // audio siguió avanzando, no se recupera lo perdido: se programarían
+    // de golpe cientos de notas en el pasado. Se retoma desde ahora.
+    if (nextNoteTime < ctx.currentTime - 0.3) nextNoteTime = ctx.currentTime + 0.05;
     while (nextNoteTime < ctx.currentTime + LOOKAHEAD) {
       scheduleStep(step, nextNoteTime);
       step = (step + 1) % (STEPS_PER_BAR * BARS);
@@ -139,5 +148,34 @@ const Music = (() => {
     return enabled;
   }
 
-  return { start, stop, setTempo, setEnabled, isEnabled };
+  // Con la app oculta (un anuncio encima, otra app) la música se pausa
+  // del todo: nada de temporizadores ni audio corriendo sin que se oiga.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      resumeOnVisible = timer !== null;
+      stop();
+      if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
+    } else if (resumeOnVisible) {
+      resumeOnVisible = false;
+      start(tempo);
+    }
+  });
+
+  function diagInfo() {
+    const t = performance.now();
+    if (t - nodesMark.t >= 1000) {
+      if (nodesMark.t > 0) {
+        nodesMark.rate = Math.round((nodesCreated - nodesMark.n) / ((t - nodesMark.t) / 1000));
+      }
+      nodesMark = { t, n: nodesCreated, rate: nodesMark.rate };
+    }
+    return {
+      state: ctx ? ctx.state : 'sin contexto',
+      timer: timer !== null,
+      lag: ctx ? ctx.currentTime - nextNoteTime : NaN,
+      nodesPerSec: nodesMark.rate,
+    };
+  }
+
+  return { start, stop, setTempo, setEnabled, isEnabled, diagInfo };
 })();

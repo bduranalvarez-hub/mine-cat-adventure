@@ -16,6 +16,9 @@
   // app nativa y no bloquea el arranque.
   Orientation.apply();
 
+  // Panel de diagnóstico oculto (ver js/diag.js).
+  Diag.init();
+
   window.addEventListener('resize', () => Game.resize());
   window.addEventListener('orientationchange', () => {
     setTimeout(() => Game.resize(), 250);
@@ -83,8 +86,11 @@
     // rendimiento real: dt está topado a 1/30 s y no distingue 30 fps
     // de 5. Ver la calidad adaptativa en js/game.js.
     Game.reportFrame(crudo);
+    const t0 = performance.now();
     Game.update(dt);
+    const t1 = performance.now();
     Game.render(dt);
+    Diag.frame(crudo, t1 - t0, performance.now() - t1);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

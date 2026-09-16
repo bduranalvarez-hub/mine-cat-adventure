@@ -70,6 +70,7 @@ const Ads = (() => {
         initializeForTesting: false,
       });
       ready = true;
+      listenDismissed(p);
       // NO se precarga aquí. Antes se hacía, y en dispositivos modestos
       // la descarga del vídeo caía justo cuando el jugador ya estaba
       // corriendo: el juego arrancaba bien y a los pocos segundos daba
@@ -82,6 +83,22 @@ const Ads = (() => {
       ready = false;
       return false;
     }
+  }
+
+  // El plugin (@capacitor-community/admob 7.2) SOLO resuelve
+  // showRewardVideoAd() cuando se gana la recompensa. Si el jugador cierra
+  // el anuncio antes, la promesa no termina nunca, y el juego se quedaba
+  // "mostrando" para siempre: sin más anuncios en esa sesión. El evento de
+  // cierre desbloquea esa espera.
+  let onDismissed = null;
+  function listenDismissed(p) {
+    if (typeof p.addListener !== 'function') return;
+    try {
+      p.addListener('onRewardedVideoAdDismissed', () => {
+        if (typeof Diag !== 'undefined') Diag.log('ad-dismiss');
+        if (onDismissed) onDismissed();
+      });
+    } catch (err) { /* sin eventos: queda el comportamiento anterior */ }
   }
 
   // Carga de verdad. Silencioso: que no haya inventario disponible es
@@ -106,6 +123,7 @@ const Ads = (() => {
   // nada; showRewarded() sí carga bajo demanda cuando hace falta.
   async function prepare() {
     if (!preloadAllowed) return loaded;
+    if (typeof Diag !== 'undefined' && Diag.preloadDisabled()) return loaded;
     return loadAd();
   }
 
@@ -143,13 +161,21 @@ const Ads = (() => {
       return { ok: false, code: 'no_disponible' };
     }
     showing = true;
+    if (typeof Diag !== 'undefined') Diag.log('ad-show');
     let reward = null;
     try {
-      reward = await p.showRewardVideoAd();
+      const closed = new Promise((resolve) => {
+        onDismissed = () => resolve(null);
+      });
+      // La recompensa siempre llega ANTES del cierre, así que ganar no se
+      // pierde. Cerrar antes de tiempo resuelve con null.
+      reward = await Promise.race([p.showRewardVideoAd(), closed]);
     } catch (err) {
-      // Cerrar el anuncio antes de tiempo llega como excepción.
+      // Un fallo al mostrar llega como excepción (el cierre anticipado
+      // llega por el evento, ver listenDismissed).
       reward = null;
     } finally {
+      onDismissed = null;
       showing = false;
       // Se consumió: el siguiente hay que volver a cargarlo. La
       // precarga es oportunista, así que tras revivir -que devuelve al
@@ -168,7 +194,11 @@ const Ads = (() => {
     return Account.watchAd();
   }
 
+  function diagInfo() {
+    return { loaded, showing, preparing };
+  }
+
   return {
-    init, available, prepare, setPreloadAllowed, showRewarded, USING_TEST_IDS,
+    diagInfo, init, available, prepare, setPreloadAllowed, showRewarded, USING_TEST_IDS,
   };
 })();
