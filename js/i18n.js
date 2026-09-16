@@ -41,6 +41,7 @@ const I18n = (() => {
       rankLocal: '📱 Ranking local (este dispositivo)',
       rankLoading: '🌍 Cargando ranking mundial…',
       rankWorld: '🌍 Ranking mundial',
+      rankWorldNoMine: '🌍 Ranking mundial · aún no tienes marca en este modo',
     // El invitado puede MIRAR el mundial, pero no entra en él: su marca
     // no se puede autenticar. Se le dice, en vez de dejarlo pensando
     // que su récord se perdió.
@@ -171,6 +172,7 @@ const I18n = (() => {
       rankLocal: '📱 Local ranking (this device)',
       rankLoading: '🌍 Loading world ranking…',
       rankWorld: '🌍 World ranking',
+      rankWorldNoMine: "🌍 World ranking · you have no score in this mode yet",
     rankWorldGuest: '🌍 World ranking · create an account to appear',
     welcomeLabel: '⛏️ Welcome to the mine',
     btnCreateAccount: 'CREATE ACCOUNT',

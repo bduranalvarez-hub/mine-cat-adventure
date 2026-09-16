@@ -830,10 +830,20 @@ const Game = (() => {
   // Token para descartar respuestas remotas obsoletas si el jugador
   // cambia de pestaña antes de que llegue la anterior.
   let rankRequest = 0;
+  // Antes se mostraban solo 10: con 12 jugadores en un modo, los puestos
+  // 11 y 12 tenían su marca guardada pero no aparecían, y un tester creyó
+  // que no se había enviado. La lista ya se desplaza, así que caben más.
+  const RANK_ROWS = 50;
+
+  function myRankName() {
+    const linked = typeof Account !== 'undefined' && Account.linkedName();
+    return String(linked || Leaderboard.getPlayer() || '').toLowerCase();
+  }
 
   // Pinta la lista. Construcción con DOM + textContent: el nombre y la
   // distancia NUNCA se interpretan como HTML, aunque vengan de otro
   // jugador (importante para el ranking en línea).
+  // Resalta la fila del jugador y la deja a la vista. Devuelve si la encontró.
   function renderRankList(entries) {
     const listEl = dom['rank-list'];
     listEl.textContent = '';
@@ -842,10 +852,16 @@ const Game = (() => {
       li.className = 'rank-empty';
       li.textContent = I18n.t('rankEmpty');
       listEl.appendChild(li);
-      return;
+      return false;
     }
+    const me = myRankName();
+    let mine = null;
     entries.forEach((e, i) => {
       const li = document.createElement('li');
+      if (me && !mine && String(e.name || '').toLowerCase() === me) {
+        li.classList.add('rank-me');
+        mine = li;
+      }
       const pos = document.createElement('span');
       pos.className = 'rank-pos';
       pos.textContent = `${i + 1}.`;
@@ -859,6 +875,8 @@ const Game = (() => {
       li.append(pos, name, dist);
       listEl.appendChild(li);
     });
+    if (mine) mine.scrollIntoView({ block: 'nearest' });
+    return Boolean(mine);
   }
 
   function showRanking(modeKey) {
@@ -873,23 +891,27 @@ const Game = (() => {
 
     if (!Leaderboard.remoteEnabled()) {
       dom['rank-status'].textContent = I18n.t('rankLocal');
-      renderRankList(Leaderboard.top(modeKey, 10));
+      renderRankList(Leaderboard.top(modeKey, RANK_ROWS));
       return;
     }
 
     dom['rank-status'].textContent = I18n.t('rankLoading');
     dom['rank-list'].textContent = '';
-    Leaderboard.topGlobal(modeKey, 10)
+    Leaderboard.topGlobal(modeKey, RANK_ROWS)
       .then((entries) => {
         if (req !== rankRequest) return; // respuesta obsoleta
-        dom['rank-status'].textContent =
-          I18n.t(Account.isLinked() ? 'rankWorld' : 'rankWorldGuest');
-        renderRankList(entries);
+        const linked = Account.isLinked();
+        const found = renderRankList(entries);
+        // Con cuenta y sin fila propia: que se sepa que aún no hay marca
+        // en este modo, en vez de parecer un envío perdido.
+        const key = !linked ? 'rankWorldGuest'
+          : (!found && entries.length < RANK_ROWS ? 'rankWorldNoMine' : 'rankWorld');
+        dom['rank-status'].textContent = I18n.t(key);
       })
       .catch(() => {
         if (req !== rankRequest) return;
         dom['rank-status'].textContent = I18n.t('rankOffline');
-        renderRankList(Leaderboard.top(modeKey, 10));
+        renderRankList(Leaderboard.top(modeKey, RANK_ROWS));
       });
   }
 

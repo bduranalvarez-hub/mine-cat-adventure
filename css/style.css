@@ -964,3 +964,10 @@ body {
   border: 0;
   border-radius: 4px;
 }
+
+/* Fila del propio jugador en el ranking. */
+.rank-list li.rank-me {
+  outline: 2px solid #7dff8e;
+  background: rgba(40, 90, 40, 0.6);
+  color: #ffffff;
+}
