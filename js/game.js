@@ -44,7 +44,10 @@ const Game = (() => {
   // los primeros ~2 s de la partida, y el caso real que la motivó -el
   // juego se hundía al cruzar los 100 m, a los 3-4 s- caía justo
   // después: ya había concluido "va bien" y no volvía a mirar.
-  const KEY_QUALITY = 'mca-quality';
+  // "-2": la 1.7 podía dejar la calidad baja guardada por error (la
+  // lentitud tras el anuncio de revivir, ver refreshSurface) y quedarse
+  // así para siempre. Con la clave nueva se vuelve a medir una vez.
+  const KEY_QUALITY = 'mca-quality-2';
   const FRAME_WINDOW = 90;    // ~1,5 s a 60 fps; se mide ventana tras ventana
   const FRAME_WARMUP = 30;    // tras empezar o reanudar, los primeros van peor
   const SLOW_FRAME_MS = 22;   // ~45 fps; por debajo de eso se nota
@@ -144,12 +147,10 @@ const Game = (() => {
       // (ver resumeAfterRevive). frozenAt sirve para el periodo de gracia.
       frozen: false,
       frozenAt: 0,
-      // Distancia de la PRIMERA muerte. Es la que vale como marca:
-      // récord local y ranking mundial. Lo que se corra después de
-      // revivir suma monedas pero NO puntúa, porque si no la tabla
-      // mundial mediría cuántos anuncios viste y no lo bien que
-      // juegas -el mismo motivo por el que las skins dan monedas y no
-      // escudos-. null mientras no se haya muerto.
+      // Distancia de la PRIMERA muerte (null mientras no se haya
+      // muerto). Ya no es la marca: desde la 1.8 puntúa la distancia
+      // total, incluido lo recorrido tras revivir, para que ver el
+      // anuncio valga la pena. El tope es un solo revivir por carrera.
       rankMeters: null,
       best: loadBest(Modes.get().storageKey),
       player: Player.create(),
@@ -340,7 +341,10 @@ const Game = (() => {
     // el bucle se detiene y esa carrera se quedaría sin cobrar.
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') settleIfDead();
-      else lastVisibleAt = performance.now();
+      else {
+        lastVisibleAt = performance.now();
+        refreshSurface();
+      }
     });
     window.addEventListener('pagehide', settleIfDead);
 
@@ -348,6 +352,10 @@ const Game = (() => {
     // código (no cubiertos por data-i18n).
     I18n.setOnChange(refreshDynamicText);
     I18n.apply();
+
+    // Si el navegador pierde el lienzo (poca memoria, GPU reiniciada), se
+    // rehace al recuperarlo. Chrome/WebView 99+ emiten estos eventos.
+    canvas.addEventListener('contextrestored', refreshSurface);
 
     resize();
     state = createState(MODES.MENU);
@@ -967,6 +975,9 @@ const Game = (() => {
     if (typeof Ads !== 'undefined') Ads.setPreloadAllowed(false);
     state = createState(MODES.PLAYING);
     sparks = [];
+    // "Reintentar" no pasa por start(): sin esto, un lienzo que quedó sin
+    // GPU tras un anuncio seguía así en todas las partidas siguientes.
+    refreshSurface();
     restartFrameMeasure();
     lastShownMeters = -1;
     dom.menu.classList.add('hidden');
@@ -997,10 +1008,11 @@ const Game = (() => {
     if (!state || state.settled) return;
     state.settled = true;
 
+    // La marca es la distancia TOTAL, incluido lo recorrido tras revivir
+    // (solo se puede revivir una vez por carrera). Así ver el anuncio
+    // sirve para llegar más alto en el récord y en el ranking mundial.
     const finalMeters = meters();
-    // La MARCA es la de la primera muerte; la distancia total (que puede
-    // ser mayor si se revivió) solo cuenta para las monedas.
-    const scoreMeters = state.rankMeters == null ? finalMeters : state.rankMeters;
+    const scoreMeters = finalMeters;
     if (scoreMeters > state.best) {
       state.best = scoreMeters;
       state.isRecord = true;
@@ -1155,6 +1167,18 @@ const Game = (() => {
     dom['resume-hint'].classList.remove('hidden');
   }
 
+  // Rehace la superficie de dibujo. Tras un anuncio a pantalla completa,
+  // el WebView de Android puede dejar el lienzo sin aceleración por GPU:
+  // la partida se arrastraba, y también todas las siguientes con
+  // "reintentar". Solo se arreglaba con "cambiar modo", porque start()
+  // llama a resize(), y asignar canvas.width crea el lienzo de nuevo
+  // aunque el tamaño sea el mismo. Las texturas del fondo se rehacen
+  // también, porque las viejas pertenecían a la superficie anterior.
+  function refreshSurface() {
+    resize();
+    Background.invalidate();
+  }
+
   function tryUnfreeze() {
     // Gracia desde que se congeló o desde que la app volvió a verse:
     // evita que un toque residual al cerrar el anuncio arranque la
@@ -1163,6 +1187,7 @@ const Game = (() => {
     if (performance.now() - since < UNFREEZE_GRACE_MS) return;
     state.frozen = false;
     dom['resume-hint'].classList.add('hidden');
+    refreshSurface();
     restartFrameMeasure();
   }
 
@@ -1193,8 +1218,8 @@ const Game = (() => {
     state.mode = MODES.DEAD;
     state.cause = cause;
     state.deathTimer = 0;
-    // La marca se fija aquí, en la PRIMERA muerte, y ya no cambia
-    // aunque se reviva y se llegue más lejos.
+    // Distancia de la PRIMERA muerte: la muestra la oferta de revivir y
+    // el fin de partida la usa para decir cuánto sumó el revivir.
     if (state.rankMeters == null) state.rankMeters = meters();
 
     if (cause === 'crash') {
@@ -1212,14 +1237,13 @@ const Game = (() => {
     dom.hud.classList.add('hidden');
     dom['go-title'].textContent =
       state.cause === 'fall' ? I18n.t('fallTitle') : I18n.t('crashTitle');
-    // El número grande es la MARCA, no la distancia recorrida: es lo
-    // que va al récord y al ranking. Si se revivió, el total (mayor)
-    // se aclara aparte para que no parezca que se perdieron metros.
+    // El número grande es la distancia total, que es lo que va al récord
+    // y al ranking. Si se revivió, se aclara cuánto aportó el revivir.
     const total = meters();
-    const marca = state.rankMeters == null ? total : state.rankMeters;
-    dom['go-distance'].textContent = String(marca);
-    if (state.revived && total > marca) {
-      dom['go-total'].textContent = I18n.t('goRevivedTotal', { m: total, s: marca });
+    const antes = state.rankMeters == null ? total : state.rankMeters;
+    dom['go-distance'].textContent = String(total);
+    if (state.revived && total > antes) {
+      dom['go-total'].textContent = I18n.t('goRevivedTotal', { n: total - antes });
       dom['go-total'].classList.remove('hidden');
     } else {
       dom['go-total'].classList.add('hidden');

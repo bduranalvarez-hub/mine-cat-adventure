@@ -523,5 +523,17 @@ const Background = (() => {
     drawPit(ctx, viewW, viewH);
   }
 
-  return { reset, draw, drawVignette, setLowQuality };
+  // Descarta los patrones y bitmaps para crearlos de nuevo en el
+  // siguiente dibujo, sobre la superficie actual del lienzo. Los mosaicos
+  // horneados (canvas) se conservan: no dependen de la GPU.
+  function invalidate() {
+    tileBitmaps.forEach((bmp) => {
+      if (bmp && typeof bmp.close === 'function') bmp.close();
+    });
+    tileBitmaps.length = 0;
+    patterns.length = 0;
+    prepareTiles();
+  }
+
+  return { reset, draw, drawVignette, setLowQuality, invalidate };
 })();
