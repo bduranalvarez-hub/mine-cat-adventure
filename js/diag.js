@@ -27,6 +27,15 @@ const Diag = (() => {
   let longTasks = 0;
   let events = [];
   let lastFps = 0;
+  // Capas apagadas a mano y calidad automática, para buscar en el móvil
+  // qué parte del dibujo se vuelve cara tras el anuncio.
+  const skipped = { fondo: false, via: false, obst: false, jugador: false };
+  let autoQualityOn = true;
+  // Tiempo de pintado del navegador (no de nuestro JS): lo da la API de
+  // "long animation frames", que separa el trabajo de dibujado del resto.
+  let loafTotal = 0;
+  let loafRender = 0;
+  let loafCount = 0;
   const counters = { adsShown: 0, adsDismissed: 0, surfaceRefresh: 0 };
 
   try {
@@ -68,6 +77,19 @@ const Diag = (() => {
     } catch (err) { /* sin almacenamiento */ }
   }
 
+  // Crea un botón del panel que no deja pasar el toque al juego.
+  function makeButton(label, onTap) {
+    const btn = document.createElement('button');
+    btn.className = 'diag-btn';
+    btn.textContent = label;
+    btn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      onTap(btn);
+    });
+    return btn;
+  }
+
   function ensurePanel() {
     if (panel) return panel;
     panel = document.createElement('div');
@@ -75,25 +97,39 @@ const Diag = (() => {
     panel.className = 'diag-panel';
     const text = document.createElement('pre');
     text.id = 'diag-text';
-    const toggle = document.createElement('button');
-    toggle.id = 'diag-preload';
-    toggle.className = 'diag-btn';
-    // Que el toque no llegue al juego (saltaría o empezaría partida).
-    toggle.addEventListener('pointerdown', (ev) => ev.stopPropagation());
-    toggle.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      setPreloadDisabled(!preloadDisabled());
-      paintToggle();
-    });
-    panel.append(text, toggle);
-    document.body.appendChild(panel);
-    paintToggle();
-    return panel;
-  }
+    const fila = document.createElement('div');
+    fila.className = 'diag-row';
 
-  function paintToggle() {
-    const btn = document.getElementById('diag-preload');
-    if (btn) btn.textContent = `precarga anuncio: ${preloadDisabled() ? 'NO' : 'SÍ'}`;
+    const preload = makeButton('', (b) => {
+      setPreloadDisabled(!preloadDisabled());
+      b.textContent = `precarga: ${preloadDisabled() ? 'NO' : 'SÍ'}`;
+    });
+    preload.textContent = `precarga: ${preloadDisabled() ? 'NO' : 'SÍ'}`;
+
+    const auto = makeButton(`auto-calidad: SÍ`, (b) => {
+      autoQualityOn = !autoQualityOn;
+      b.textContent = `auto-calidad: ${autoQualityOn ? 'SÍ' : 'NO'}`;
+    });
+
+    const lienzo = makeButton('lienzo nuevo', () => {
+      if (typeof Game !== 'undefined' && Game.newSurface) Game.newSurface();
+    });
+
+    fila.append(preload, auto, lienzo);
+
+    const capas = document.createElement('div');
+    capas.className = 'diag-row';
+    Object.keys(skipped).forEach((capa) => {
+      capas.appendChild(makeButton(capa, (b) => {
+        skipped[capa] = !skipped[capa];
+        b.textContent = skipped[capa] ? `${capa}: NO` : capa;
+        b.classList.toggle('off', skipped[capa]);
+      }));
+    });
+
+    panel.append(text, fila, capas);
+    document.body.appendChild(panel);
+    return panel;
   }
 
   function setEnabled(value) {
@@ -124,6 +160,30 @@ const Diag = (() => {
       }, LONG_PRESS_MS);
     });
     ['pointerup', 'pointercancel'].forEach((t) => el.addEventListener(t, cancel));
+  }
+
+  // ¿Se puede saltar esta capa del dibujo? Solo con el panel abierto.
+  function skip(capa) {
+    return enabled && skipped[capa] === true;
+  }
+
+  function autoQuality() {
+    return autoQualityOn;
+  }
+
+  // Mide cuánto del fotograma se va en el dibujado del navegador.
+  function observeFrames() {
+    try {
+      const po = new PerformanceObserver((list) => {
+        list.getEntries().forEach((e) => {
+          loafCount += 1;
+          loafTotal += e.duration;
+          // renderStart marca el comienzo del dibujado dentro del fotograma.
+          if (e.renderStart) loafRender += Math.max(0, e.startTime + e.duration - e.renderStart);
+        });
+      });
+      po.observe({ type: 'long-animation-frame', buffered: false });
+    } catch (err) { /* navegador sin soporte: la línea queda en "-" */ }
   }
 
   function observeLongTasks() {
@@ -213,7 +273,8 @@ const Diag = (() => {
       `ctx perdido ${g.contextLost ? 'SÍ' : 'no'}  refrescos ${counters.surfaceRefresh}  modo ${g.mode || '-'}`,
       `anuncios vistos ${counters.adsShown}  cerrados ${counters.adsDismissed}  cargado ${a.loaded ? 'sí' : 'no'}  mostrando ${a.showing ? 'sí' : 'no'}`,
       `música ${m.state || '-'} timer ${m.timer ? 'sí' : 'no'} atraso ${fmt(m.lag)} s  nodos/s ${m.nodesPerSec == null ? '-' : m.nodesPerSec}`,
-      `tareas largas ${longTasks}  memoria ${mem}  ${document.visibilityState}`,
+      `tareas largas ${longTasks}  pintado ${loafCount ? fmt(loafRender / loafCount) + ' ms de ' + fmt(loafTotal / loafCount) : '-'}`,
+      `memoria ${mem}  ${document.visibilityState}`,
       ...events,
     ];
     document.getElementById('diag-text').textContent = lines.join('\n');
@@ -221,12 +282,13 @@ const Diag = (() => {
 
   function init() {
     observeLongTasks();
+    observeFrames();
     document.addEventListener('visibilitychange', () => log(`vis-${document.visibilityState}`));
     if (enabled) ensurePanel();
   }
 
   return {
-    init, frame, log, attachLongPress, preloadDisabled,
+    init, frame, log, attachLongPress, preloadDisabled, skip, autoQuality,
     isEnabled: () => enabled,
   };
 })();

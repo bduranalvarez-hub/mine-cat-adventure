@@ -1049,3 +1049,14 @@ body {
     max-height: 70vh;
   }
 }
+
+/* Fila de botones del panel de diagnóstico. */
+.diag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.diag-btn.off {
+  background: #ff9b7a;
+}

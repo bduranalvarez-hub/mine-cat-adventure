@@ -132,6 +132,13 @@ const Game = (() => {
 
   // Cambia el lienzo por uno nuevo y vuelve a la calidad normal para
   // probar si el nuevo recupera la aceleración.
+  // Igual que la prueba automática, pero a petición del panel y sin tope.
+  function trySurfaceRecoveryManual() {
+    surfaceTrials = 0;
+    ultraLow = true; // para que la función acepte hacerlo
+    trySurfaceRecovery();
+  }
+
   function trySurfaceRecovery() {
     if (!ultraLow || surfaceTrials >= MAX_SURFACE_TRIALS) return;
     surfaceTrials += 1;
@@ -156,6 +163,9 @@ const Game = (() => {
   // Tiene que ser el crudo: el dt que usa la simulación está acotado a
   // 1/30 s, así que no distingue 30 fps de 5 y no serviría para medir.
   function reportFrame(ms) {
+    // Con la calidad automática apagada a mano (panel de diagnóstico) no
+    // se toca nada: así se puede medir el problema sin que se disimule.
+    if (!Diag.autoQuality()) return;
     // Congelada tras revivir no se está jugando: no hay carga que medir.
     if (ultraLow || !state || state.mode !== MODES.PLAYING || state.frozen) return;
     // Descarta valores absurdos: pestaña en segundo plano, depurador
@@ -1630,21 +1640,32 @@ const Game = (() => {
       ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
     }
 
-    Background.draw(ctx, state, dt, viewW, viewH);
-    Track.draw(ctx, state.track, state.worldX, state.camY, viewW, viewH);
-    Obstacles.draw(ctx, state.obstacles, state.track, state.worldX, state.camY, viewW, state.time);
+    // Diag.skip() solo devuelve true con el panel abierto y la capa
+    // apagada a mano: sirve para averiguar EN EL MÓVIL cuál es la cara.
+    if (!Diag.skip('fondo')) {
+      Background.draw(ctx, state, dt, viewW, viewH);
+    } else {
+      ctx.fillStyle = '#1a1008';
+      ctx.fillRect(0, 0, viewW, viewH);
+    }
+    if (!Diag.skip('via')) {
+      Track.draw(ctx, state.track, state.worldX, state.camY, viewW, viewH);
+    }
+    if (!Diag.skip('obst')) {
+      Obstacles.draw(ctx, state.obstacles, state.track, state.worldX, state.camY, viewW, state.time);
+    }
 
     const speedFactor = state.speed / Modes.get().maxSpeed;
     // Fuera de la vista no se dibuja: ver DEAD_FALL_MARGIN.
     const py = playerScreenY();
-    if (py > -400 && py < viewH + DEAD_FALL_MARGIN + 200) {
+    if (!Diag.skip('jugador') && py > -400 && py < viewH + DEAD_FALL_MARGIN + 200) {
       Sprites.drawPlayer(
         ctx, playerX, py, state.player.tilt,
         state.player.spin, state.time, speedFactor
       );
     }
     drawSparks();
-    Background.drawVignette(ctx, viewW, viewH);
+    if (!Diag.skip('fondo')) Background.drawVignette(ctx, viewW, viewH);
   }
 
   // Estado interno de solo lectura, para pruebas automatizadas.
@@ -1672,7 +1693,8 @@ const Game = (() => {
   }
 
   return {
-    diagInfo, setup, resize, handleAction, handleRelease, start, update, render,
+    diagInfo, newSurface: trySurfaceRecoveryManual, setup, resize, handleAction,
+    handleRelease, start, update, render,
     reportFrame, debugState,
   };
 })();
