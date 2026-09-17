@@ -209,6 +209,7 @@ const Diag = (() => {
       `juego ${fmt(juego)} ms (upd ${fmt(avg(up))} / dib ${fmt(avg(rd))})  fuera ${fmt(fuera)} ms`,
       `lienzo ${g.canvas || '-'}  dpr ${g.dpr || '-'}  calidad ${g.ultraLow ? 'ULTRA' : (g.lowQuality ? 'BAJA' : 'alta')}`,
       `gpu ${probeGpu().slice(0, 48)}`,
+      `jugador y ${g.playerY == null ? '-' : g.playerY}  (vista ${g.viewH == null ? '-' : g.viewH})`,
       `ctx perdido ${g.contextLost ? 'SÍ' : 'no'}  refrescos ${counters.surfaceRefresh}  modo ${g.mode || '-'}`,
       `anuncios vistos ${counters.adsShown}  cerrados ${counters.adsDismissed}  cargado ${a.loaded ? 'sí' : 'no'}  mostrando ${a.showing ? 'sí' : 'no'}`,
       `música ${m.state || '-'} timer ${m.timer ? 'sí' : 'no'} atraso ${fmt(m.lag)} s  nodos/s ${m.nodesPerSec == null ? '-' : m.nodesPerSec}`,

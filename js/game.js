@@ -1040,6 +1040,8 @@ const Game = (() => {
       ultraLow,
       contextLost: Boolean(ctx && typeof ctx.isContextLost === 'function' && ctx.isContextLost()),
       mode: state ? state.mode : '-',
+      playerY: state ? Math.round(playerScreenY()) : 0,
+      viewH: Math.round(viewH),
     };
   }
 
@@ -1571,10 +1573,24 @@ const Game = (() => {
     }
   }
 
+  // Hasta dónde se deja caer la vagoneta muerta, medido desde el borde
+  // inferior de la vista. Más abajo no se ve, y seguir sumando gravedad
+  // llevaba su posición en pantalla a decenas de miles de píxeles: un
+  // tester encontró que el lag tras revivir aparecía SOLO cuando la
+  // muerte era por caída al vacío, que es justo cuando cae más lejos.
+  // Dibujar tan fuera de la pantalla (además con sombra difuminada) es lo
+  // que hace que el WebView abandone la aceleración del lienzo.
+  const DEAD_FALL_MARGIN = 400;
+
   function updateDead(dt) {
     state.deathTimer += dt;
-    state.player.vy += CONFIG.GRAVITY * dt;
-    state.player.worldY += state.player.vy * dt;
+    const limite = state.camY + viewH + DEAD_FALL_MARGIN;
+    if (state.player.worldY < limite) {
+      state.player.vy += CONFIG.GRAVITY * dt;
+      state.player.worldY = Math.min(limite, state.player.worldY + state.player.vy * dt);
+    } else {
+      state.player.vy = 0;
+    }
     if (state.cause === 'crash') {
       state.player.tilt += 5 * dt;
     }
@@ -1619,10 +1635,14 @@ const Game = (() => {
     Obstacles.draw(ctx, state.obstacles, state.track, state.worldX, state.camY, viewW, state.time);
 
     const speedFactor = state.speed / Modes.get().maxSpeed;
-    Sprites.drawPlayer(
-      ctx, playerX, playerScreenY(), state.player.tilt,
-      state.player.spin, state.time, speedFactor
-    );
+    // Fuera de la vista no se dibuja: ver DEAD_FALL_MARGIN.
+    const py = playerScreenY();
+    if (py > -400 && py < viewH + DEAD_FALL_MARGIN + 200) {
+      Sprites.drawPlayer(
+        ctx, playerX, py, state.player.tilt,
+        state.player.spin, state.time, speedFactor
+      );
+    }
     drawSparks();
     Background.drawVignette(ctx, viewW, viewH);
   }
