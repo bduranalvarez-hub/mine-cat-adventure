@@ -227,6 +227,7 @@ const Ads = (() => {
       return { ok: false, code: 'no_disponible' };
     }
     showing = true;
+    shownCount += 1;
     diagLog('ad-show');
     let reward = null;
     let failed = false;
@@ -294,11 +295,17 @@ const Ads = (() => {
     return { ...res, rewarded: true };
   }
 
+  // Anuncios mostrados en esta sesión (ver la calidad adaptativa de game.js).
+  let shownCount = 0;
+  function shownThisSession() {
+    return shownCount;
+  }
+
   function diagInfo() {
     return { loaded, showing, preparing };
   }
 
   return {
-    diagInfo, init, available, prepare, setPreloadAllowed, showRewarded, USING_TEST_IDS,
+    diagInfo, shownThisSession, init, available, prepare, setPreloadAllowed, showRewarded, USING_TEST_IDS,
   };
 })();

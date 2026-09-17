@@ -44,10 +44,11 @@ const Game = (() => {
   // los primeros ~2 s de la partida, y el caso real que la motivó -el
   // juego se hundía al cruzar los 100 m, a los 3-4 s- caía justo
   // después: ya había concluido "va bien" y no volvía a mirar.
-  // "-2": la 1.7 podía dejar la calidad baja guardada por error (la
-  // lentitud tras el anuncio de revivir, ver refreshSurface) y quedarse
-  // así para siempre. Con la clave nueva se vuelve a medir una vez.
-  const KEY_QUALITY = 'mca-quality-2';
+  // "-3": hasta la 1.14 la lentitud causada por un anuncio también se
+  // guardaba como calidad baja, y el móvil quedaba borroso para siempre
+  // aunque su GPU fuera de sobra. Con la clave nueva se vuelve a medir, y
+  // la lentitud posterior a un anuncio ya no se guarda (ver setLowQuality).
+  const KEY_QUALITY = 'mca-quality-3';
   const FRAME_WINDOW = 90;    // ~1,5 s a 60 fps; se mide ventana tras ventana
   const FRAME_WARMUP = 30;    // tras empezar o reanudar, los primeros van peor
   const SLOW_FRAME_MS = 22;   // ~45 fps; por debajo de eso se nota
@@ -77,27 +78,78 @@ const Game = (() => {
   let ultraLow = false;
   const ULTRA_RENDER_SCALE = 0.5;
 
+  // Con la 1.14 el panel mostró algo más: tras el anuncio la GPU del
+  // móvil seguía disponible (WebGL decía "Mali-G57"). El que perdía la
+  // aceleración era ESTE lienzo. Así que, en la partida siguiente, se
+  // prueba con un lienzo nuevo (otro elemento) y la calidad normal. Si
+  // vuelve a ir lento, se regresa al ultraligero. Como mucho
+  // MAX_SURFACE_TRIALS veces por sesión, porque cada prueba fallida cuesta
+  // un par de segundos de tirones al empezar.
+  const MAX_SURFACE_TRIALS = 2;
+  let surfaceTrials = 0;
+  let onTrial = false;
+  // La calidad baja que se puso por un anuncio es de esta sesión (no se
+  // guarda) y la prueba también la puede deshacer.
+  let lowQualityFromAd = false;
+
+  function applyCheap(value) {
+    Background.setUltraLow(value);
+    Sprites.setCheap(value);
+    Track.setCheap(value);
+  }
+
   function setUltraLow() {
     if (ultraLow) return;
     ultraLow = true;
-    Background.setUltraLow(true);
-    Sprites.setCheap(true);
-    Track.setCheap(true);
-    Diag.log('ultraligero');
+    applyCheap(true);
+    Diag.log(onTrial ? 'prueba-fallida' : 'ultraligero');
+    onTrial = false;
     resize();
+  }
+
+  function adsShown() {
+    return typeof Ads !== 'undefined' && Ads.shownThisSession ? Ads.shownThisSession() : 0;
   }
 
   function setLowQuality() {
     if (lowQuality) return;
     lowQuality = true;
-    try {
-      localStorage.setItem(KEY_QUALITY, 'low');
-    } catch (err) {
-      /* sin almacenamiento: vale para esta sesión */
+    // Solo se guarda si en esta sesión no hubo anuncios: si los hubo, la
+    // lentitud es del anuncio y no del teléfono.
+    if (adsShown() === 0) {
+      try {
+        localStorage.setItem(KEY_QUALITY, 'low');
+      } catch (err) {
+        /* sin almacenamiento: vale para esta sesión */
+      }
+    } else {
+      lowQualityFromAd = true;
     }
     Background.setLowQuality(true);
     Diag.log('calidad-baja');
     resize();
+  }
+
+  // Cambia el lienzo por uno nuevo y vuelve a la calidad normal para
+  // probar si el nuevo recupera la aceleración.
+  function trySurfaceRecovery() {
+    if (!ultraLow || surfaceTrials >= MAX_SURFACE_TRIALS) return;
+    surfaceTrials += 1;
+    const fresh = document.createElement('canvas');
+    fresh.id = canvas.id;
+    canvas.replaceWith(fresh);
+    canvas = fresh;
+    ctx = canvas.getContext('2d');
+    canvas.addEventListener('contextrestored', refreshSurface);
+    ultraLow = false;
+    applyCheap(false);
+    if (lowQualityFromAd) {
+      lowQuality = false;
+      lowQualityFromAd = false;
+      Background.setLowQuality(false);
+    }
+    onTrial = true;
+    Diag.log(`prueba-lienzo ${surfaceTrials}`);
   }
 
   // Recibe el tiempo REAL del fotograma (ms) desde el bucle de main.js.
@@ -121,7 +173,20 @@ const Game = (() => {
     // Mediana y no media: unos pocos tirones sueltos no deben condenar
     // a un dispositivo que por lo demás va fino.
     const mediana = orden[Math.floor(orden.length / 2)];
-    if (mediana <= SLOW_FRAME_MS) return;
+    if (mediana <= SLOW_FRAME_MS) {
+      if (onTrial) {
+        onTrial = false;
+        Diag.log('prueba-superada');
+      }
+      return;
+    }
+    // La prueba del lienzo nuevo no funcionó: de vuelta al ultraligero.
+    if (onTrial) {
+      setLowQuality();
+      setUltraLow();
+      restartFrameMeasure();
+      return;
+    }
     // Primero se baja la densidad; si aun así no alcanza, el ultraligero.
     // Muy lento (el caso sin GPU tras un anuncio) va directo a los dos.
     if (mediana > VERY_SLOW_FRAME_MS) {
@@ -1061,6 +1126,7 @@ const Game = (() => {
     if (typeof Ads !== 'undefined') Ads.setPreloadAllowed(false);
     state = createState(MODES.PLAYING);
     sparks = [];
+    trySurfaceRecovery();
     // "Reintentar" no pasa por start(): sin esto, un lienzo que quedó sin
     // GPU tras un anuncio seguía así en todas las partidas siguientes.
     refreshSurface();

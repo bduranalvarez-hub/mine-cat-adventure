@@ -508,6 +508,9 @@ body {
 }
 
 .rank-list {
+  /* Sin esto el toque no llegaba a la lista (.overlay los ignora) y no
+     se podía desplazar para ver más allá de los primeros puestos. */
+  pointer-events: auto;
   list-style: none;
   width: min(80vw, 340px);
   max-height: 46vh;
@@ -1001,5 +1004,48 @@ body {
   .login-bg .mode-btn {
     padding: 8px 18px;
     font-size: 17px;
+  }
+}
+
+/* Ranking y tienda: la pantalla entera se desplaza cuando no cabe
+   (móvil en horizontal). margin auto en el primer y el último hijo centra
+   el contenido si cabe y no lo recorta si no cabe. flex-shrink 0 evita
+   que la lista de la tienda se aplaste hasta desaparecer. */
+#ranking,
+#shop {
+  justify-content: flex-start;
+  overflow-y: auto;
+  pointer-events: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+#ranking > *,
+#shop > * {
+  flex-shrink: 0;
+}
+#ranking > :first-child,
+#shop > :first-child {
+  margin-top: auto;
+}
+#ranking > :last-child,
+#shop > :last-child {
+  margin-bottom: auto;
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  #ranking,
+  #shop {
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  #ranking .rank-title,
+  #shop .rank-title {
+    font-size: clamp(24px, 9vh, 40px);
+  }
+  #ranking .rank-list {
+    max-height: 48vh;
+  }
+  #shop .shop-list {
+    max-height: 70vh;
   }
 }
