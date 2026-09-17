@@ -59,9 +59,18 @@ const Ads = (() => {
   // Arranca el SDK. Se llama una vez al inicio; si falla (sin red, SDK
   // ausente, consentimiento denegado) se queda en no disponible y el
   // juego sigue funcionando igual: los anuncios son opcionales.
+  let initializing = null;
   async function init() {
     const p = getPlugin();
     if (!p || ready) return ready;
+    if (initializing) return initializing;
+    initializing = doInit(p).finally(() => {
+      initializing = null;
+    });
+    return initializing;
+  }
+
+  async function doInit(p) {
     try {
       await p.initialize({
         // Sin dispositivos de prueba declarados: con los IDs de prueba
@@ -70,7 +79,7 @@ const Ads = (() => {
         initializeForTesting: false,
       });
       ready = true;
-      listenDismissed(p);
+      listenFullscreen(p);
       // NO se precarga aquí. Antes se hacía, y en dispositivos modestos
       // la descarga del vídeo caía justo cuando el jugador ya estaba
       // corriendo: el juego arrancaba bien y a los pocos segundos daba
@@ -91,36 +100,82 @@ const Ads = (() => {
   // "mostrando" para siempre: sin más anuncios en esa sesión. El evento de
   // cierre desbloquea esa espera.
   let onDismissed = null;
+  let onShowFailed = null;
+  let onShowed = null;
   // Tras el cierre se espera un poco por la recompensa: en el móvil de un
   // tester (1.10), con algunos anuncios el aviso de cierre llegaba ANTES
   // que el de recompensa, y dar el anuncio por no visto dejaba sin revivir
   // a quien lo había visto entero.
   const REWARD_GRACE_MS = 2500;
-  function listenDismissed(p) {
+  // Si el anuncio no llega a mostrarse, el plugin solo lo avisa con el
+  // evento FailedToShow y tampoco resuelve la promesa. Sin estos avisos, el
+  // botón de revivir se quedaba "cargando" para siempre.
+  const SHOW_WATCHDOG_MS = 10000;
+  // Como mucho se espera esto a que cargue un anuncio pedido al momento.
+  const LOAD_WAIT_MS = 15000;
+
+  function diagLog(what) {
+    if (typeof Diag !== 'undefined') Diag.log(what);
+  }
+
+  let showedEventReady = false;
+  function listenFullscreen(p) {
     if (typeof p.addListener !== 'function') return;
-    try {
-      p.addListener('onRewardedVideoAdDismissed', () => {
-        if (typeof Diag !== 'undefined') Diag.log('ad-dismiss');
-        if (onDismissed) onDismissed();
-      });
-    } catch (err) { /* sin eventos: queda el comportamiento anterior */ }
+    const on = (name, fn) => {
+      try {
+        p.addListener(name, fn);
+        return true;
+      } catch (err) {
+        return false; // sin eventos: queda el comportamiento anterior
+      }
+    };
+    on('onRewardedVideoAdDismissed', () => {
+      diagLog('ad-dismiss');
+      if (onDismissed) onDismissed();
+    });
+    on('onRewardedVideoAdFailedToShow', () => {
+      diagLog('ad-fallo-mostrar');
+      if (onShowFailed) onShowFailed();
+    });
+    showedEventReady = on('onRewardedVideoAdShowed', () => {
+      if (onShowed) onShowed();
+    });
   }
 
   // Carga de verdad. Silencioso: que no haya inventario disponible es
-  // normal y no es un error que mostrar.
-  async function loadAd() {
+  // normal y no es un error que mostrar. Si ya hay una carga en curso (la
+  // precarga del menú), se espera ESA: antes se respondía "no hay
+  // anuncio" al instante y el botón de revivir parecía no hacer nada.
+  let loadPromise = null;
+  function loadAd() {
     const p = getPlugin();
-    if (!p || !ready || loaded || preparing) return loaded;
+    if (!p || !ready || loaded) return Promise.resolve(loaded);
+    if (loadPromise) return loadPromise;
     preparing = true;
-    try {
-      await p.prepareRewardVideoAd({ adId: REWARDED_ID });
-      loaded = true;
-    } catch (err) {
-      loaded = false;
-    } finally {
-      preparing = false;
-    }
-    return loaded;
+    loadPromise = p.prepareRewardVideoAd({ adId: REWARDED_ID })
+      .then(() => {
+        loaded = true;
+      })
+      .catch(() => {
+        loaded = false;
+        diagLog('ad-sin-carga');
+      })
+      .then(() => {
+        preparing = false;
+        loadPromise = null;
+        return loaded;
+      });
+    return loadPromise;
+  }
+
+  // Espera la carga, pero no más de LOAD_WAIT_MS: con mala red el jugador
+  // recibe un "no se pudo cargar" y puede reintentar. La carga sigue por
+  // detrás y deja el anuncio listo para el siguiente intento.
+  function loadWithLimit() {
+    return Promise.race([
+      loadAd(),
+      new Promise((resolve) => setTimeout(() => resolve(false), LOAD_WAIT_MS)),
+    ]);
   }
 
   // Precarga OPORTUNISTA: solo si estamos en un momento tranquilo. La
@@ -138,6 +193,12 @@ const Ads = (() => {
   // el botón de revivir ya lo tiene cargado.
   function setPreloadAllowed(allowed) {
     preloadAllowed = Boolean(allowed);
+    // Si el SDK no arrancó (p. ej. se abrió la app sin conexión), se
+    // reintenta al volver al menú en vez de quedarse sin anuncios.
+    if (preloadAllowed && !ready && getPlugin()) {
+      init();
+      return;
+    }
     if (preloadAllowed) prepare();
   }
 
@@ -162,26 +223,54 @@ const Ads = (() => {
     if (!p || !ready || showing) return { ok: false, code: 'no_disponible' };
     // Bajo demanda se salta la ventana de precarga: el jugador acaba de
     // pedir el anuncio, así que se carga aunque estemos en partida.
-    if (!loaded && !(await loadAd())) {
+    if (!loaded && !(await loadWithLimit())) {
       return { ok: false, code: 'no_disponible' };
     }
     showing = true;
-    if (typeof Diag !== 'undefined') Diag.log('ad-show');
+    diagLog('ad-show');
     let reward = null;
+    let failed = false;
+    let watchdog = null;
     try {
       const closed = new Promise((resolve) => {
-        onDismissed = () => setTimeout(() => resolve(null), REWARD_GRACE_MS);
+        // Un cierre solo cuenta si ESTE anuncio ya apareció: así un aviso
+        // atrasado del anuncio anterior no corta el actual.
+        let shown = !showedEventReady;
+        onDismissed = () => {
+          if (shown) setTimeout(() => resolve(null), REWARD_GRACE_MS);
+        };
+        const fail = () => {
+          failed = true;
+          resolve(null);
+        };
+        onShowFailed = fail;
+        // Si el anuncio no aparece en SHOW_WATCHDOG_MS, se da por fallido.
+        // Solo con el evento Showed registrado: sin él no se sabría si
+        // apareció y se cortaría un anuncio en curso.
+        if (showedEventReady) {
+          watchdog = setTimeout(() => {
+            diagLog('ad-no-aparecio');
+            fail();
+          }, SHOW_WATCHDOG_MS);
+        }
+        onShowed = () => {
+          shown = true;
+          clearTimeout(watchdog);
+        };
       });
       // Gana la recompensa si llega (antes del cierre o durante la espera
       // posterior). Cerrar antes de tiempo resuelve con null.
       reward = await Promise.race([p.showRewardVideoAd(), closed]);
-      if (reward && typeof Diag !== 'undefined') Diag.log('ad-reward');
+      if (reward) diagLog('ad-reward');
     } catch (err) {
-      // Un fallo al mostrar llega como excepción (el cierre anticipado
-      // llega por el evento, ver listenDismissed).
+      // Un fallo al mostrar puede llegar como excepción.
       reward = null;
+      failed = true;
     } finally {
+      clearTimeout(watchdog);
       onDismissed = null;
+      onShowFailed = null;
+      onShowed = null;
       showing = false;
       // Se consumió: el siguiente hay que volver a cargarlo. La
       // precarga es oportunista, así que tras revivir -que devuelve al
@@ -190,7 +279,7 @@ const Ads = (() => {
       loaded = false;
       prepare();
     }
-    if (!reward) return { ok: false, code: 'sin_recompensa' };
+    if (!reward) return { ok: false, code: failed ? 'no_disponible' : 'sin_recompensa' };
 
     // Vista confirmada: que el servidor la registre y decida si toca
     // desbloquear alguna épica.
