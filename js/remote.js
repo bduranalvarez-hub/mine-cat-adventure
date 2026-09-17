@@ -99,7 +99,7 @@ const Remote = (() => {
   // mal tecleado deja de convertirse en una cuenta nueva y vacía.
   async function authAccount(name, pin, create) {
     if (!enabled()) return null;
-    const res = await withTimeout((signal) =>
+    const call = () => withTimeout((signal) =>
       fetch(`${RemoteConfig.url}/rest/v1/rpc/auth_account`, {
         method: 'POST',
         headers: headers(),
@@ -107,6 +107,22 @@ const Remote = (() => {
         signal,
       })
     );
+    // Un reintento si la red falla o tarda (datos móviles inestables): un
+    // tester vio "sin conexión" con el servidor funcionando. Solo ante
+    // fallo de red; las respuestas del servidor no se repiten, así un PIN
+    // incorrecto no cuenta doble para el bloqueo.
+    let res;
+    try {
+      res = await call();
+    } catch (err) {
+      try {
+        res = await call();
+      } catch (err2) {
+        const e = new Error('network');
+        e.code = 'sin_conexion';
+        throw e;
+      }
+    }
     if (!res.ok) {
       const err = new Error('http_error');
       err.code = 'sin_conexion';

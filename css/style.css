@@ -386,8 +386,10 @@ body {
 }
 
 /* Encabezado del panel de login: dice si se esta CREANDO una cuenta o
-   entrando a una existente, para que el formulario no sea ambiguo. */
-.login-title {
+   entrando a una existente, para que el formulario no sea ambiguo.
+   Con .overlay delante: si no, la regla general .overlay h2 (más
+   específica) lo agrandaba a 52 px. */
+.overlay .login-title {
   margin: 0;
   font-size: 19px;
   font-weight: 900;
@@ -970,4 +972,34 @@ body {
   outline: 2px solid #7dff8e;
   background: rgba(40, 90, 40, 0.6);
   color: #ffffff;
+}
+
+/* Bienvenida y login en móvil horizontal. Con el teclado abierto quedan
+   ~150 px de alto: el panel centrado se salía por arriba y por abajo, y
+   el botón de entrar quedaba fuera de la pantalla sin poder alcanzarlo.
+   Ahora la pantalla se desplaza (margin auto centra si cabe y no recorta
+   si no cabe) y el panel es más compacto. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .login-bg {
+    align-items: flex-start;
+    overflow-y: auto;
+    pointer-events: auto;
+    touch-action: pan-y;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .login-bg .login-panel {
+    margin-block: auto;
+    gap: 6px;
+    padding: 10px 16px 12px;
+  }
+  .login-bg #nick,
+  .login-bg #pin {
+    padding: 6px 12px;
+    font-size: 17px;
+  }
+  .login-bg .mode-btn {
+    padding: 8px 18px;
+    font-size: 17px;
+  }
 }

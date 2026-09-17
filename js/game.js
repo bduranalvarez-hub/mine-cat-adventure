@@ -337,6 +337,20 @@ const Game = (() => {
     wireButton('btn-go-login', () => showLogin('login'));
     wireButton('btn-guest', () => showLogin('guest'));
     wireButton('btn-login-back', showWelcome);
+    // Con el teclado abierto (sobre todo en horizontal) el botón de entrar
+    // puede quedar fuera de la vista: se desplaza hasta él al enfocar.
+    const showLoginButton = () => {
+      dom['btn-login'].scrollIntoView({ block: 'nearest' });
+    };
+    ['nick', 'pin'].forEach((id) => {
+      dom[id].addEventListener('focus', () => setTimeout(showLoginButton, 350));
+    });
+    // El teclado encoge la ventana DESPUÉS del foco: se repite al cambiar
+    // de tamaño si sigue enfocado un campo del login.
+    window.addEventListener('resize', () => {
+      const active = document.activeElement;
+      if (active === dom.nick || active === dom.pin) setTimeout(showLoginButton, 50);
+    });
     wireButton('btn-logout', showWelcome);
     wireButton('btn-link-account', showWelcome);
     wireButton('btn-ranking', () => showRanking(Modes.get().key));
