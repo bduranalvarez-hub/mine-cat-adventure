@@ -86,6 +86,8 @@ const Game = (() => {
   // MAX_SURFACE_TRIALS veces por sesión, porque cada prueba fallida cuesta
   // un par de segundos de tirones al empezar.
   const MAX_SURFACE_TRIALS = 2;
+  // ¿Ya se probó un lienzo nuevo en este episodio de lentitud? (reportFrame)
+  let swappedThisEpisode = false;
   let surfaceTrials = 0;
   let onTrial = false;
   // La calidad baja que se puso por un anuncio es de esta sesión (no se
@@ -139,15 +141,32 @@ const Game = (() => {
     trySurfaceRecovery();
   }
 
-  function trySurfaceRecovery() {
-    if (!ultraLow || surfaceTrials >= MAX_SURFACE_TRIALS) return;
-    surfaceTrials += 1;
+  // Cambia el lienzo por uno NUEVO (otro elemento) sin tocar la calidad.
+  //
+  // Es el arreglo real del lag tras los anuncios. Con la 1.18 el panel lo
+  // demostró en el móvil: tras volver del anuncio, el pintado del lienzo se
+  // llevaba 51 de los 57 ms del fotograma (pintaba por CPU), y al estrenar
+  // un lienzo nuevo en la partida siguiente volvió a 60 fps con calidad alta
+  // ("prueba-superada"). Rehacer el MISMO elemento (asignar width) no
+  // bastaba: el navegador recuerda por elemento que perdió la aceleración.
+  function swapCanvas() {
     const fresh = document.createElement('canvas');
     fresh.id = canvas.id;
     canvas.replaceWith(fresh);
     canvas = fresh;
     ctx = canvas.getContext('2d');
     canvas.addEventListener('contextrestored', refreshSurface);
+    Diag.log('lienzo-nuevo');
+    refreshSurface();
+    // Al volver de un anuncio (a veces en otra orientación) el tamaño puede
+    // no estar listo todavía: se reajusta también en el siguiente cuadro.
+    requestAnimationFrame(resize);
+  }
+
+  function trySurfaceRecovery() {
+    if (!ultraLow || surfaceTrials >= MAX_SURFACE_TRIALS) return;
+    surfaceTrials += 1;
+    swapCanvas();
     ultraLow = false;
     applyCheap(false);
     if (lowQualityFromAd) {
@@ -184,10 +203,20 @@ const Game = (() => {
     // a un dispositivo que por lo demás va fino.
     const mediana = orden[Math.floor(orden.length / 2)];
     if (mediana <= SLOW_FRAME_MS) {
+      swappedThisEpisode = false;
       if (onTrial) {
         onTrial = false;
         Diag.log('prueba-superada');
       }
+      return;
+    }
+    // Lento: antes de sacrificar calidad se estrena un lienzo nuevo, que es
+    // lo que arregla el caso del anuncio. Una vez por episodio de lentitud:
+    // en un móvil lento de verdad no sirve de nada repetirlo.
+    if (!swappedThisEpisode && !onTrial) {
+      swappedThisEpisode = true;
+      swapCanvas();
+      restartFrameMeasure();
       return;
     }
     // La prueba del lienzo nuevo no funcionó: de vuelta al ultraligero.
@@ -468,7 +497,9 @@ const Game = (() => {
       if (document.visibilityState === 'hidden') settleIfDead();
       else {
         lastVisibleAt = performance.now();
-        refreshSurface();
+        // Al volver (del anuncio o de otra app) el lienzo pudo quedar
+        // pintando por CPU: se estrena uno nuevo antes de que se note.
+        swapCanvas();
       }
     });
     window.addEventListener('pagehide', settleIfDead);
