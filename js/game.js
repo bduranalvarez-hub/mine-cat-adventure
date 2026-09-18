@@ -39,33 +39,28 @@ const Game = (() => {
   // forma fiable- se MIDE el tiempo real de fotograma mientras se juega
   // y se baja la densidad si no se llega a un ritmo jugable.
   //
-  // La bajada es de un solo sentido y se recuerda: no se vuelve a subir,
-  // para que la calidad no oscile en el borde del umbral, y la próxima
-  // partida ya arranca ligera sin repetir la medición.
+  // Orden ante la lentitud: primero un lienzo nuevo (arregla el caso más
+  // común, ver swapCanvas), luego menos densidad y por último el
+  // ultraligero. Dentro de una partida la calidad no vuelve a subir, para
+  // que no oscile en el borde del umbral; en la siguiente se prueba otra
+  // vez la normal (ver trySurfaceRecovery).
   //
   // La medición es CONTINUA, no solo al principio. Antes se decidía con
   // los primeros ~2 s de la partida, y el caso real que la motivó -el
   // juego se hundía al cruzar los 100 m, a los 3-4 s- caía justo
   // después: ya había concluido "va bien" y no volvía a mirar.
-  // "-3": hasta la 1.14 la lentitud causada por un anuncio también se
-  // guardaba como calidad baja, y el móvil quedaba borroso para siempre
-  // aunque su GPU fuera de sobra. Con la clave nueva se vuelve a medir, y
-  // la lentitud posterior a un anuncio ya no se guarda (ver setLowQuality).
-  const KEY_QUALITY = 'mca-quality-3';
+  // Desde la 1.21 la calidad baja NO se guarda entre sesiones. Casi toda
+  // la lentitud medida en móviles reales resultó ser un lienzo que pintaba
+  // por CPU (tras un anuncio, o en la primera sesión después de instalar o
+  // actualizar, cuando el sistema gráfico del WebView aún no estaba listo
+  // al crear el lienzo). Guardarla dejaba el juego borroso para siempre
+  // en móviles que van sobrados.
   const FRAME_WINDOW = 90;    // ~1,5 s a 60 fps; se mide ventana tras ventana
   const FRAME_WARMUP = 30;    // tras empezar o reanudar, los primeros van peor
   const SLOW_FRAME_MS = 22;   // ~45 fps; por debajo de eso se nota
   const VERY_SLOW_FRAME_MS = 45; // ~22 fps: se salta directo al ultraligero
 
-  function readQuality() {
-    try {
-      return localStorage.getItem(KEY_QUALITY) === 'low';
-    } catch (err) {
-      return false;
-    }
-  }
-
-  let lowQuality = readQuality();
+  let lowQuality = false;
   let frameSamples = [];
   let warmupLeft = FRAME_WARMUP;
   // El fondo tiene su propia versión barata (sin fundido entre minerales).
@@ -81,21 +76,16 @@ const Game = (() => {
   let ultraLow = false;
   const ULTRA_RENDER_SCALE = 0.5;
 
-  // Con la 1.14 el panel mostró algo más: tras el anuncio la GPU del
-  // móvil seguía disponible (WebGL decía "Mali-G57"). El que perdía la
-  // aceleración era ESTE lienzo. Así que, en la partida siguiente, se
-  // prueba con un lienzo nuevo (otro elemento) y la calidad normal. Si
-  // vuelve a ir lento, se regresa al ultraligero. Como mucho
+  // Si la calidad bajó, en la partida siguiente se prueba otra vez la
+  // normal (con un lienzo nuevo): lo que la hizo bajar pudo haber pasado ya.
+  // Si vuelve a ir lento, se regresa al escalón anterior. Como mucho
   // MAX_SURFACE_TRIALS veces por sesión, porque cada prueba fallida cuesta
   // un par de segundos de tirones al empezar.
-  const MAX_SURFACE_TRIALS = 2;
+  const MAX_SURFACE_TRIALS = 3;
   // ¿Ya se probó un lienzo nuevo en este episodio de lentitud? (reportFrame)
   let swappedThisEpisode = false;
   let surfaceTrials = 0;
   let onTrial = false;
-  // La calidad baja que se puso por un anuncio es de esta sesión (no se
-  // guarda) y la prueba también la puede deshacer.
-  let lowQualityFromAd = false;
 
   function applyCheap(value) {
     Background.setUltraLow(value);
@@ -112,24 +102,9 @@ const Game = (() => {
     resize();
   }
 
-  function adsShown() {
-    return typeof Ads !== 'undefined' && Ads.shownThisSession ? Ads.shownThisSession() : 0;
-  }
-
   function setLowQuality() {
     if (lowQuality) return;
     lowQuality = true;
-    // Solo se guarda si en esta sesión no hubo anuncios: si los hubo, la
-    // lentitud es del anuncio y no del teléfono.
-    if (adsShown() === 0) {
-      try {
-        localStorage.setItem(KEY_QUALITY, 'low');
-      } catch (err) {
-        /* sin almacenamiento: vale para esta sesión */
-      }
-    } else {
-      lowQualityFromAd = true;
-    }
     Background.setLowQuality(true);
     Diag.log('calidad-baja');
     resize();
@@ -166,19 +141,18 @@ const Game = (() => {
     requestAnimationFrame(resize);
   }
 
+  // Devuelve true si estrenó lienzo (para no estrenar otro enseguida).
   function trySurfaceRecovery() {
-    if (!ultraLow || surfaceTrials >= MAX_SURFACE_TRIALS) return;
+    if (!(ultraLow || lowQuality) || surfaceTrials >= MAX_SURFACE_TRIALS) return false;
     surfaceTrials += 1;
-    swapCanvas();
     ultraLow = false;
     applyCheap(false);
-    if (lowQualityFromAd) {
-      lowQuality = false;
-      lowQualityFromAd = false;
-      Background.setLowQuality(false);
-    }
+    lowQuality = false;
+    Background.setLowQuality(false);
+    swapCanvas();
     onTrial = true;
     Diag.log(`prueba-lienzo ${surfaceTrials}`);
+    return true;
   }
 
   // Recibe el tiempo REAL del fotograma (ms) desde el bucle de main.js.
@@ -1186,10 +1160,11 @@ const Game = (() => {
     if (typeof Ads !== 'undefined') Ads.setPreloadAllowed(false);
     state = createState(MODES.PLAYING);
     sparks = [];
-    trySurfaceRecovery();
-    // "Reintentar" no pasa por start(): sin esto, un lienzo que quedó sin
-    // GPU tras un anuncio seguía así en todas las partidas siguientes.
-    refreshSurface();
+    // Cada partida estrena lienzo. El de la anterior pudo quedar pintando
+    // por CPU (tras un anuncio, o porque se creó al abrir la app, antes de
+    // que el sistema gráfico estuviera listo: pasaba en la primera sesión
+    // tras instalar o actualizar). Crear uno cuesta muy poco.
+    if (!trySurfaceRecovery()) swapCanvas();
     restartFrameMeasure();
     lastShownMeters = -1;
     dom.menu.classList.add('hidden');
