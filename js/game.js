@@ -23,6 +23,9 @@ const Game = (() => {
   // Cuándo volvió a verse la página (p. ej. al cerrar un anuncio).
   let lastVisibleAt = 0;
   const UNFREEZE_GRACE_MS = 400;
+  // Espera tras cerrarse el anuncio antes de estrenar el lienzo nuevo: el
+  // WebView tarda un instante en volver a pintar.
+  const AD_CLOSE_SWAP_DELAY_MS = 250;
   // Segundos mínimos de riel sin huecos por delante al reanudar tras
   // revivir. Medido con 5 revivires: sin esto el primer hueco llegaba
   // entre 0,8 y 1,8 s después de reanudar, sin tiempo real de reacción.
@@ -512,6 +515,20 @@ const Game = (() => {
     // Si el navegador pierde el lienzo (poca memoria, GPU reiniciada), se
     // rehace al recuperarlo. Chrome/WebView 99+ emiten estos eventos.
     canvas.addEventListener('contextrestored', refreshSurface);
+
+    // Anuncio a pantalla completa: la música se calla mientras se ve (se
+    // mezclaba con el audio del anuncio) y, al cerrarse, se estrena un
+    // lienzo nuevo, porque el viejo puede quedar pintando por CPU. La
+    // página no pasa a oculta durante el anuncio: no basta visibilitychange.
+    if (typeof Ads !== 'undefined' && Ads.onAdScreen) {
+      Ads.onAdScreen(
+        () => Music.pauseFor('anuncio'),
+        () => {
+          Music.resumeFrom('anuncio');
+          setTimeout(swapCanvas, AD_CLOSE_SWAP_DELAY_MS);
+        }
+      );
+    }
 
     resize();
     state = createState(MODES.MENU);

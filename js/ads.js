@@ -118,6 +118,47 @@ const Ads = (() => {
     if (typeof Diag !== 'undefined') Diag.log(what);
   }
 
+  // Aviso al juego de cuándo hay un anuncio a pantalla completa, para
+  // pausar la música y, al cerrarse, estrenar un lienzo nuevo. Hace falta
+  // porque en Android la página NO pasa a oculta mientras el anuncio la
+  // tapa (el panel de diagnóstico nunca registró vis-hidden en un anuncio
+  // normal): visibilitychange no sirve para esto.
+  //
+  // El cierre NO se deduce de la recompensa: la recompensa llega con el
+  // vídeo todavía en pantalla. Cuenta el aviso de cierre del SDK (o el
+  // fallo al mostrarse), y como red de seguridad un tope de tiempo.
+  const AD_SCREEN_MAX_MS = 150000;
+  let adScreenOpen = false;
+  let adScreenTimer = null;
+  const adScreenHandlers = [];
+
+  function onAdScreen(onOpen, onClose) {
+    adScreenHandlers.push({ onOpen, onClose });
+  }
+
+  function runHandlers(kind) {
+    adScreenHandlers.forEach((h) => {
+      try {
+        if (h[kind]) h[kind]();
+      } catch (err) { /* un fallo del juego no puede romper el anuncio */ }
+    });
+  }
+
+  function openAdScreen() {
+    if (adScreenOpen) return;
+    adScreenOpen = true;
+    clearTimeout(adScreenTimer);
+    adScreenTimer = setTimeout(closeAdScreen, AD_SCREEN_MAX_MS);
+    runHandlers('onOpen');
+  }
+
+  function closeAdScreen() {
+    if (!adScreenOpen) return;
+    adScreenOpen = false;
+    clearTimeout(adScreenTimer);
+    runHandlers('onClose');
+  }
+
   let showedEventReady = false;
   function listenFullscreen(p) {
     if (typeof p.addListener !== 'function') return;
@@ -132,10 +173,12 @@ const Ads = (() => {
     on('onRewardedVideoAdDismissed', () => {
       diagLog('ad-dismiss');
       if (onDismissed) onDismissed();
+      closeAdScreen();
     });
     on('onRewardedVideoAdFailedToShow', () => {
       diagLog('ad-fallo-mostrar');
       if (onShowFailed) onShowFailed();
+      closeAdScreen();
     });
     showedEventReady = on('onRewardedVideoAdShowed', () => {
       if (onShowed) onShowed();
@@ -242,6 +285,7 @@ const Ads = (() => {
         };
         const fail = () => {
           failed = true;
+          closeAdScreen();
           resolve(null);
         };
         onShowFailed = fail;
@@ -259,6 +303,7 @@ const Ads = (() => {
           clearTimeout(watchdog);
         };
       });
+      openAdScreen();
       // Gana la recompensa si llega (antes del cierre o durante la espera
       // posterior). Cerrar antes de tiempo resuelve con null.
       reward = await Promise.race([p.showRewardVideoAd(), closed]);
@@ -267,7 +312,11 @@ const Ads = (() => {
       // Un fallo al mostrar puede llegar como excepción.
       reward = null;
       failed = true;
+      closeAdScreen();
     } finally {
+      // Sin eventos del SDK no hay forma de saber cuándo se cierra: se da
+      // por cerrado aquí para no dejar la música en pausa para siempre.
+      if (!showedEventReady) closeAdScreen();
       clearTimeout(watchdog);
       onDismissed = null;
       onShowFailed = null;
@@ -306,6 +355,6 @@ const Ads = (() => {
   }
 
   return {
-    diagInfo, shownThisSession, init, available, prepare, setPreloadAllowed, showRewarded, USING_TEST_IDS,
+    diagInfo, shownThisSession, onAdScreen, init, available, prepare, setPreloadAllowed, showRewarded, USING_TEST_IDS,
   };
 })();

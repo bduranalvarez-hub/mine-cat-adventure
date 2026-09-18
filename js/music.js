@@ -28,7 +28,11 @@ const Music = (() => {
   let enabled = true;
   let nodesCreated = 0;       // para el panel de diagnóstico
   let nodesMark = { t: 0, n: 0, rate: null };
-  let resumeOnVisible = false;
+  // Motivos por los que la música está en pausa ("oculta", "anuncio"). Solo
+  // vuelve a sonar cuando no queda ninguno: si el anuncio termina con la app
+  // todavía oculta, sigue callada hasta que se vuelva a ver.
+  const pausedBy = new Set();
+  let resumeWanted = false;
 
   try {
     enabled = localStorage.getItem(STORAGE_KEY) !== '0';
@@ -117,6 +121,12 @@ const Music = (() => {
   function start(bpm) {
     tempo = bpm || 112;
     if (!enabled) return;
+    // En pausa (anuncio en pantalla, app oculta) no arranca: queda
+    // apuntado para cuando termine la pausa.
+    if (pausedBy.size > 0) {
+      resumeWanted = true;
+      return;
+    }
     if (!ensureContext()) return;
     if (timer === null) {
       nextNoteTime = ctx.currentTime + 0.05;
@@ -148,17 +158,30 @@ const Music = (() => {
     return enabled;
   }
 
-  // Con la app oculta (un anuncio encima, otra app) la música se pausa
-  // del todo: nada de temporizadores ni audio corriendo sin que se oiga.
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      resumeOnVisible = timer !== null;
+  // Pausa del todo (temporizador y audio), recordando si sonaba.
+  function pauseFor(reason) {
+    if (pausedBy.size === 0) {
+      resumeWanted = timer !== null;
       stop();
       if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
-    } else if (resumeOnVisible) {
-      resumeOnVisible = false;
+    }
+    pausedBy.add(reason);
+  }
+
+  function resumeFrom(reason) {
+    if (!pausedBy.delete(reason) || pausedBy.size > 0) return;
+    if (resumeWanted) {
+      resumeWanted = false;
       start(tempo);
     }
+  }
+
+  // Con la app oculta (otra app encima) la música se pausa del todo.
+  // Durante un anuncio la página NO pasa a oculta en Android: esa pausa
+  // la pide el juego con pauseFor('anuncio') (ver js/ads.js).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') pauseFor('oculta');
+    else resumeFrom('oculta');
   });
 
   function diagInfo() {
@@ -177,5 +200,7 @@ const Music = (() => {
     };
   }
 
-  return { start, stop, setTempo, setEnabled, isEnabled, diagInfo };
+  return {
+    start, stop, setTempo, setEnabled, isEnabled, diagInfo, pauseFor, resumeFrom,
+  };
 })();
