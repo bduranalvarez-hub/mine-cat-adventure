@@ -55,14 +55,19 @@ const Game = (() => {
   // actualizar, cuando el sistema gráfico del WebView aún no estaba listo
   // al crear el lienzo). Guardarla dejaba el juego borroso para siempre
   // en móviles que van sobrados.
-  const FRAME_WINDOW = 90;    // ~1,5 s a 60 fps; se mide ventana tras ventana
-  const FRAME_WARMUP = 30;    // tras empezar o reanudar, los primeros van peor
+  // La ventana se mide en TIEMPO, no en número de fotogramas: con 90
+  // fotogramas, a 9 fps cada decisión tardaba ~14 s y la partida acababa
+  // antes de que la calidad llegara a ajustarse.
+  const FRAME_WINDOW_MS = 1500; // se mide ventana tras ventana
+  const FRAME_WINDOW_MIN = 8;   // mínimo de muestras para decidir
+  const FRAME_WARMUP_MS = 500;  // tras empezar o reanudar, los primeros van peor
   const SLOW_FRAME_MS = 22;   // ~45 fps; por debajo de eso se nota
   const VERY_SLOW_FRAME_MS = 45; // ~22 fps: se salta directo al ultraligero
 
   let lowQuality = false;
   let frameSamples = [];
-  let warmupLeft = FRAME_WARMUP;
+  let frameWindowMs = 0;
+  let warmupLeftMs = FRAME_WARMUP_MS;
   // El fondo tiene su propia versión barata (sin fundido entre minerales).
   Background.setLowQuality(lowQuality);
 
@@ -128,9 +133,18 @@ const Game = (() => {
   // ("prueba-superada"). Rehacer el MISMO elemento (asignar width) no
   // bastaba: el navegador recuerda por elemento que perdió la aceleración.
   function swapCanvas() {
+    const old = canvas;
     const fresh = document.createElement('canvas');
-    fresh.id = canvas.id;
-    canvas.replaceWith(fresh);
+    fresh.id = old.id;
+    old.replaceWith(fresh);
+    // Libera YA la memoria del lienzo viejo. Sin esto seguía reservada en
+    // la GPU hasta que pasara el recolector, que con tan poca memoria de JS
+    // casi nunca pasa. En la 1.21, que estrenaba lienzo en cada partida, el
+    // móvil de pruebas (Mali-G57) se quedó en 9 fps tras dos o tres cambios
+    // sin que nuestro código trabajara más (juego 1 ms, el resto esperando
+    // a la GPU).
+    old.width = 0;
+    old.height = 0;
     canvas = fresh;
     ctx = canvas.getContext('2d');
     canvas.addEventListener('contextrestored', refreshSurface);
@@ -167,12 +181,14 @@ const Game = (() => {
     // Descarta valores absurdos: pestaña en segundo plano, depurador
     // detenido o el primer fotograma tras volver de otra app.
     if (!Number.isFinite(ms) || ms <= 0 || ms > 1000) return;
-    if (warmupLeft > 0) {
-      warmupLeft -= 1;
+    if (warmupLeftMs > 0) {
+      warmupLeftMs -= ms;
       return;
     }
     frameSamples.push(ms);
-    if (frameSamples.length < FRAME_WINDOW) return;
+    frameWindowMs += ms;
+    if (frameWindowMs < FRAME_WINDOW_MS || frameSamples.length < FRAME_WINDOW_MIN) return;
+    frameWindowMs = 0;
 
     const orden = frameSamples.slice().sort((a, b) => a - b);
     frameSamples = [];
@@ -220,7 +236,8 @@ const Game = (() => {
   // fotogramas no son representativos: se descartan y se abre ventana nueva.
   function restartFrameMeasure() {
     frameSamples = [];
-    warmupLeft = FRAME_WARMUP;
+    frameWindowMs = 0;
+    warmupLeftMs = FRAME_WARMUP_MS;
   }
 
   function loadBest(storageKey) {
@@ -1160,11 +1177,11 @@ const Game = (() => {
     if (typeof Ads !== 'undefined') Ads.setPreloadAllowed(false);
     state = createState(MODES.PLAYING);
     sparks = [];
-    // Cada partida estrena lienzo. El de la anterior pudo quedar pintando
-    // por CPU (tras un anuncio, o porque se creó al abrir la app, antes de
-    // que el sistema gráfico estuviera listo: pasaba en la primera sesión
-    // tras instalar o actualizar). Crear uno cuesta muy poco.
-    if (!trySurfaceRecovery()) swapCanvas();
+    // Si la calidad bajó, la partida nueva vuelve a probar la normal con un
+    // lienzo nuevo. Si no, basta con reajustar el de siempre: estrenar lienzo
+    // tiene un coste en la GPU y solo se hace con motivo (al volver de un
+    // anuncio o de otra app, o al medir lentitud; ver swapCanvas).
+    if (!trySurfaceRecovery()) refreshSurface();
     restartFrameMeasure();
     lastShownMeters = -1;
     dom.menu.classList.add('hidden');

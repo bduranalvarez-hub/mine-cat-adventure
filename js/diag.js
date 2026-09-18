@@ -242,7 +242,7 @@ const Diag = (() => {
   // del renderizador: "SwiftShader" o sin WebGL significa que se quedó sin
   // GPU. Es caro, así que se consulta como mucho cada 10 s y el contexto se
   // libera en el acto.
-  const GPU_PROBE_MS = 10000;
+  const GPU_PROBE_MS = 30000;
   let gpuName = '-';
   let gpuProbedAt = -Infinity;
   function probeGpu() {
