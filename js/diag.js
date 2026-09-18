@@ -172,6 +172,10 @@ const Diag = (() => {
   }
 
   // Mide cuánto del fotograma se va en el dibujado del navegador.
+  // Solo los fotogramas lentos de los últimos segundos: el promedio desde
+  // el arranque mezclaba el momento del lag con horas de juego normal.
+  const LOAF_WINDOW_MS = 3000;
+  let loafRecent = [];
   function observeFrames() {
     try {
       const po = new PerformanceObserver((list) => {
@@ -179,20 +183,59 @@ const Diag = (() => {
           loafCount += 1;
           loafTotal += e.duration;
           // renderStart marca el comienzo del dibujado dentro del fotograma.
-          if (e.renderStart) loafRender += Math.max(0, e.startTime + e.duration - e.renderStart);
+          const render = e.renderStart ? Math.max(0, e.startTime + e.duration - e.renderStart) : 0;
+          loafRender += render;
+          // Scripts de NUESTRA página que corrieron en ese fotograma. Si el
+          // fotograma es largo y aquí no hay casi nada, el tiempo se lo
+          // llevó algo de fuera (otro WebView del mismo hilo, el recolector).
+          let script = 0;
+          let top = null;
+          (e.scripts || []).forEach((s) => {
+            script += s.duration;
+            if (!top || s.duration > top.duration) top = s;
+          });
+          loafRecent.push({
+            t: e.startTime, dur: e.duration, render, script,
+            top: top ? `${top.invoker || top.invokerType || '?'} ${Math.round(top.duration)}ms` : '',
+          });
         });
+        const limite = now() - LOAF_WINDOW_MS;
+        loafRecent = loafRecent.filter((f) => f.t >= limite);
       });
       po.observe({ type: 'long-animation-frame', buffered: false });
     } catch (err) { /* navegador sin soporte: la línea queda en "-" */ }
   }
 
+  // De quién son las tareas largas: "self" es nuestra página; "unknown" o
+  // "multiple-contexts" apuntan a otro documento del mismo hilo.
+  const longTaskKinds = {};
   function observeLongTasks() {
     try {
       const po = new PerformanceObserver((list) => {
-        longTasks += list.getEntries().length;
+        list.getEntries().forEach((e) => {
+          longTasks += 1;
+          longTaskKinds[e.name] = (longTaskKinds[e.name] || 0) + 1;
+        });
       });
       po.observe({ type: 'longtask', buffered: false });
     } catch (err) { /* no soportado: se queda en 0 */ }
+  }
+
+  function loafLine() {
+    const limite = now() - LOAF_WINDOW_MS;
+    const recientes = loafRecent.filter((f) => f.t >= limite);
+    if (!recientes.length) return 'lentos 3s: ninguno';
+    const n = recientes.length;
+    const dur = recientes.reduce((a, f) => a + f.dur, 0) / n;
+    const ren = recientes.reduce((a, f) => a + f.render, 0) / n;
+    const scr = recientes.reduce((a, f) => a + f.script, 0) / n;
+    const peor = recientes.reduce((a, f) => (f.script > a.script ? f : a), recientes[0]);
+    return `lentos 3s: ${n} de ${fmt(dur)} ms (dib ${fmt(ren)} js ${fmt(scr)} otro ${fmt(Math.max(0, dur - ren - scr))})${peor.top ? '  top: ' + peor.top : ''}`;
+  }
+
+  function longTaskLine() {
+    const partes = Object.keys(longTaskKinds).map((k) => `${k} ${longTaskKinds[k]}`);
+    return `tareas largas ${longTasks}${partes.length ? ' (' + partes.join(', ') + ')' : ''}`;
   }
 
   // ¿Qué pinta el WebView? Crea un contexto WebGL de prueba y lee el nombre
@@ -273,7 +316,8 @@ const Diag = (() => {
       `ctx perdido ${g.contextLost ? 'SÍ' : 'no'}  refrescos ${counters.surfaceRefresh}  modo ${g.mode || '-'}`,
       `anuncios vistos ${counters.adsShown}  cerrados ${counters.adsDismissed}  cargado ${a.loaded ? 'sí' : 'no'}  mostrando ${a.showing ? 'sí' : 'no'}`,
       `música ${m.state || '-'} timer ${m.timer ? 'sí' : 'no'} atraso ${fmt(m.lag)} s  nodos/s ${m.nodesPerSec == null ? '-' : m.nodesPerSec}`,
-      `tareas largas ${longTasks}  pintado ${loafCount ? fmt(loafRender / loafCount) + ' ms de ' + fmt(loafTotal / loafCount) : '-'}`,
+      longTaskLine(),
+      loafLine(),
       `memoria ${mem}  ${document.visibilityState}`,
       ...events,
     ];
