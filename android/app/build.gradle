@@ -18,8 +18,8 @@ android {
         applicationId "com.minecatadventure.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 25
-        versionName "1.23"
+        versionCode 26
+        versionName "1.24"
         // ID de aplicación REAL de AdMob (ver AndroidManifest.xml).
         manifestPlaceholders = [admobAppId: "ca-app-pub-6167652699679734~3912662521"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
