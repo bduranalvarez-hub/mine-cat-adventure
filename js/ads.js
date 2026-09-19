@@ -119,7 +119,8 @@ const Ads = (() => {
   }
 
   // Aviso al juego de cuándo hay un anuncio a pantalla completa, para
-  // pausar la música y, al cerrarse, estrenar un lienzo nuevo. Hace falta
+  // pausar la música y, al cerrarse, comprobar si el WebView quedó
+  // pintando por CPU (ver js/restart.js). Hace falta
   // porque en Android la página NO pasa a oculta mientras el anuncio la
   // tapa (el panel de diagnóstico nunca registró vis-hidden en un anuncio
   // normal): visibilitychange no sirve para esto.
@@ -131,6 +132,7 @@ const Ads = (() => {
   let adScreenOpen = false;
   let adScreenTimer = null;
   const adScreenHandlers = [];
+  let closeWaiters = []; // ver afterAdScreen
 
   function onAdScreen(onOpen, onClose) {
     adScreenHandlers.push({ onOpen, onClose });
@@ -157,6 +159,21 @@ const Ads = (() => {
     adScreenOpen = false;
     clearTimeout(adScreenTimer);
     runHandlers('onClose');
+    const waiters = closeWaiters;
+    closeWaiters = [];
+    waiters.forEach((resolve) => resolve());
+  }
+
+  // Se resuelve cuando el anuncio ya no está en pantalla. Cualquier alert()
+  // tras un anuncio tiene que esperarla: la recompensa llega con el anuncio
+  // aún visible, y todos los WebView de la app (el del juego y el del
+  // anuncio) comparten el hilo del renderizador. Un alert en ese momento lo
+  // bloqueaba y la X del anuncio dejaba de responder.
+  function afterAdScreen() {
+    if (!adScreenOpen) return Promise.resolve();
+    return new Promise((resolve) => {
+      closeWaiters.push(resolve);
+    });
   }
 
   let showedEventReady = false;
@@ -355,6 +372,7 @@ const Ads = (() => {
   }
 
   return {
-    diagInfo, shownThisSession, onAdScreen, init, available, prepare, setPreloadAllowed, showRewarded, USING_TEST_IDS,
+    diagInfo, shownThisSession, onAdScreen, afterAdScreen, init, available, prepare, setPreloadAllowed,
+    showRewarded, USING_TEST_IDS,
   };
 })();

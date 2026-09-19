@@ -23,16 +23,18 @@ const Game = (() => {
   // Cuándo volvió a verse la página (p. ej. al cerrar un anuncio).
   let lastVisibleAt = 0;
   const UNFREEZE_GRACE_MS = 400;
-  // Espera tras cerrarse el anuncio antes de estrenar el lienzo nuevo: el
-  // WebView tarda un instante en volver a pintar.
-  const AD_CLOSE_SWAP_DELAY_MS = 500;
+  // Flujos de anuncio en curso (revivir, monedas, épicas). Mientras haya
+  // alguno no se recarga la página (ver js/restart.js): se perdería la
+  // recompensa que aún está confirmando el servidor.
+  let adFlows = 0;
   // Con un anuncio en pantalla no se dibuja NADA. La página no pasa a oculta
   // en Android, así que el bucle seguía dibujando a 60 fps detrás del vídeo
   // (el panel registraba "ad-reward (58 fps)") y competía con él por la
   // GPU; al volver, el juego quedaba lento. Ver main.js.
   let adScreenOpen = false;
+  // También se para todo mientras la página se recarga (ver js/restart.js).
   function isRenderPaused() {
-    return adScreenOpen;
+    return adScreenOpen || Restart.isReloading();
   }
   // Segundos mínimos de riel sin huecos por delante al reanudar tras
   // revivir. Medido con 5 revivires: sin esto el primer hueco llegaba
@@ -47,11 +49,10 @@ const Game = (() => {
   // forma fiable- se MIDE el tiempo real de fotograma mientras se juega
   // y se baja la densidad si no se llega a un ritmo jugable.
   //
-  // Orden ante la lentitud: primero un lienzo nuevo (arregla el caso más
-  // común, ver swapCanvas), luego menos densidad y por último el
-  // ultraligero. Dentro de una partida la calidad no vuelve a subir, para
-  // que no oscile en el borde del umbral; en la siguiente se prueba otra
-  // vez la normal (ver trySurfaceRecovery).
+  // Orden ante la lentitud: menos densidad y, si no alcanza, el
+  // ultraligero. Dentro de una sesión la calidad no vuelve a subir, para que
+  // no oscile en el borde del umbral. La lentitud tras un anuncio o al volver
+  // del fondo NO pasa por aquí: la resuelve js/restart.js recargando.
   //
   // La medición es CONTINUA, no solo al principio. Antes se decidía con
   // los primeros ~2 s de la partida, y el caso real que la motivó -el
@@ -80,25 +81,11 @@ const Game = (() => {
   Background.setLowQuality(lowQuality);
 
   // Segundo escalón, solo para ESTA sesión: dibujar a media resolución y
-  // sin efectos caros (degradados, sombras, destellos). Existe por lo que
-  // midió el panel de diagnóstico en un móvil real: tras el segundo
-  // anuncio, el WebView se quedaba sin GPU para toda la sesión. El juego
-  // seguía tardando solo 2 ms por fotograma, pero el navegador tardaba
-  // 70 ms en pintarlo por CPU (unos 15 fps), y rehacer el lienzo no lo
-  // recuperaba. No se guarda: al reabrir la app vuelve la GPU.
+  // sin efectos caros (degradados, sombras, destellos). Es la protección
+  // para móviles lentos de verdad; la lentitud que aparece tras un anuncio
+  // o al volver del fondo se arregla recargando (ver js/restart.js).
   let ultraLow = false;
   const ULTRA_RENDER_SCALE = 0.5;
-
-  // Si la calidad bajó, en la partida siguiente se prueba otra vez la
-  // normal (con un lienzo nuevo): lo que la hizo bajar pudo haber pasado ya.
-  // Si vuelve a ir lento, se regresa al escalón anterior. Como mucho
-  // MAX_SURFACE_TRIALS veces por sesión, porque cada prueba fallida cuesta
-  // un par de segundos de tirones al empezar.
-  const MAX_SURFACE_TRIALS = 3;
-  // ¿Ya se probó un lienzo nuevo en este episodio de lentitud? (reportFrame)
-  let swappedThisEpisode = false;
-  let surfaceTrials = 0;
-  let onTrial = false;
 
   function applyCheap(value) {
     Background.setUltraLow(value);
@@ -106,90 +93,20 @@ const Game = (() => {
     Track.setCheap(value);
   }
 
-  // Si la calidad bajó, dentro de la MISMA partida se vuelve a probar la
-  // normal cuando haya pasado este tiempo: lo que la hizo bajar (la GPU
-  // saturada al volver de un anuncio) se pasa solo a los pocos segundos, y
-  // esperar a la partida siguiente dejaba toda la carrera con mala calidad.
-  const MID_RUN_RETRY_MS = 10000;
-  let degradedAt = 0;
-
-  function maybeRecoverMidRun() {
-    if (!state || state.mode !== MODES.PLAYING || state.frozen) return;
-    if (performance.now() - degradedAt < MID_RUN_RETRY_MS) return;
-    if (trySurfaceRecovery()) restartFrameMeasure();
-  }
-
   function setUltraLow() {
     if (ultraLow) return;
     ultraLow = true;
-    degradedAt = performance.now();
     applyCheap(true);
-    Diag.log(onTrial ? 'prueba-fallida' : 'ultraligero');
-    onTrial = false;
+    Diag.log('ultraligero');
     resize();
   }
 
   function setLowQuality() {
     if (lowQuality) return;
     lowQuality = true;
-    degradedAt = performance.now();
     Background.setLowQuality(true);
     Diag.log('calidad-baja');
     resize();
-  }
-
-  // Cambia el lienzo por uno nuevo y vuelve a la calidad normal para
-  // probar si el nuevo recupera la aceleración.
-  // Igual que la prueba automática, pero a petición del panel y sin tope.
-  function trySurfaceRecoveryManual() {
-    surfaceTrials = 0;
-    ultraLow = true; // para que la función acepte hacerlo
-    trySurfaceRecovery();
-  }
-
-  // Cambia el lienzo por uno NUEVO (otro elemento) sin tocar la calidad.
-  //
-  // Es el arreglo real del lag tras los anuncios. Con la 1.18 el panel lo
-  // demostró en el móvil: tras volver del anuncio, el pintado del lienzo se
-  // llevaba 51 de los 57 ms del fotograma (pintaba por CPU), y al estrenar
-  // un lienzo nuevo en la partida siguiente volvió a 60 fps con calidad alta
-  // ("prueba-superada"). Rehacer el MISMO elemento (asignar width) no
-  // bastaba: el navegador recuerda por elemento que perdió la aceleración.
-  function swapCanvas() {
-    const old = canvas;
-    const fresh = document.createElement('canvas');
-    fresh.id = old.id;
-    old.replaceWith(fresh);
-    // Libera YA la memoria del lienzo viejo. Sin esto seguía reservada en
-    // la GPU hasta que pasara el recolector, que con tan poca memoria de JS
-    // casi nunca pasa. En la 1.21, que estrenaba lienzo en cada partida, el
-    // móvil de pruebas (Mali-G57) se quedó en 9 fps tras dos o tres cambios
-    // sin que nuestro código trabajara más (juego 1 ms, el resto esperando
-    // a la GPU).
-    old.width = 0;
-    old.height = 0;
-    canvas = fresh;
-    ctx = canvas.getContext('2d');
-    canvas.addEventListener('contextrestored', refreshSurface);
-    Diag.log('lienzo-nuevo');
-    refreshSurface();
-    // Al volver de un anuncio (a veces en otra orientación) el tamaño puede
-    // no estar listo todavía: se reajusta también en el siguiente cuadro.
-    requestAnimationFrame(resize);
-  }
-
-  // Devuelve true si estrenó lienzo (para no estrenar otro enseguida).
-  function trySurfaceRecovery() {
-    if (!(ultraLow || lowQuality) || surfaceTrials >= MAX_SURFACE_TRIALS) return false;
-    surfaceTrials += 1;
-    ultraLow = false;
-    applyCheap(false);
-    lowQuality = false;
-    Background.setLowQuality(false);
-    swapCanvas();
-    onTrial = true;
-    Diag.log(`prueba-lienzo ${surfaceTrials}`);
-    return true;
   }
 
   // Recibe el tiempo REAL del fotograma (ms) desde el bucle de main.js.
@@ -200,13 +117,10 @@ const Game = (() => {
     // se toca nada: así se puede medir el problema sin que se disimule.
     if (!Diag.autoQuality()) return;
     // Congelada tras revivir no se está jugando: no hay carga que medir.
-    if (!state || state.mode !== MODES.PLAYING || state.frozen) return;
-    // En el escalón más bajo no queda nada que bajar: solo se espera el
-    // momento de volver a probar la calidad normal.
-    if (ultraLow) {
-      maybeRecoverMidRun();
-      return;
-    }
+    if (ultraLow || !state || state.mode !== MODES.PLAYING || state.frozen) return;
+    // Tras un anuncio o al volver del fondo decide js/restart.js: si el
+    // WebView quedó degradado, bajar la calidad solo lo disimularía.
+    if (Restart.isBusy()) return;
     // Descarta valores absurdos: pestaña en segundo plano, depurador
     // detenido o el primer fotograma tras volver de otra app.
     if (!Number.isFinite(ms) || ms <= 0 || ms > 1000) return;
@@ -224,34 +138,16 @@ const Game = (() => {
     // Mediana y no media: unos pocos tirones sueltos no deben condenar
     // a un dispositivo que por lo demás va fino.
     const mediana = orden[Math.floor(orden.length / 2)];
-    if (mediana <= SLOW_FRAME_MS) {
-      swappedThisEpisode = false;
-      if (onTrial) {
-        onTrial = false;
-        Diag.log('prueba-superada');
-      } else if (lowQuality) {
-        maybeRecoverMidRun();
-      }
-      return;
-    }
-    // Lento: antes de sacrificar calidad se estrena un lienzo nuevo, que es
-    // lo que arregla el caso del anuncio. Una vez por episodio de lentitud:
-    // en un móvil lento de verdad no sirve de nada repetirlo.
-    if (!swappedThisEpisode && !onTrial) {
-      swappedThisEpisode = true;
-      swapCanvas();
-      restartFrameMeasure();
-      return;
-    }
-    // La prueba del lienzo nuevo no funcionó: de vuelta al ultraligero.
-    if (onTrial) {
-      setLowQuality();
-      setUltraLow();
+    if (mediana <= SLOW_FRAME_MS) return;
+    // Lentitud extrema: antes de bajar la calidad se prueba a recargar, que
+    // es lo que arregla un WebView que quedó pintando por CPU (ver
+    // js/restart.js). Si no procede, sigue el camino de siempre.
+    if (mediana > VERY_SLOW_FRAME_MS && Restart.requestFromPlay(mediana)) {
       restartFrameMeasure();
       return;
     }
     // Primero se baja la densidad; si aun así no alcanza, el ultraligero.
-    // Muy lento (el caso sin GPU tras un anuncio) va directo a los dos.
+    // Muy lento va directo a los dos.
     if (mediana > VERY_SLOW_FRAME_MS) {
       setLowQuality();
       setUltraLow();
@@ -522,9 +418,9 @@ const Game = (() => {
       if (document.visibilityState === 'hidden') settleIfDead();
       else {
         lastVisibleAt = performance.now();
-        // Al volver (del anuncio o de otra app) el lienzo pudo quedar
-        // pintando por CPU: se estrena uno nuevo antes de que se note.
-        swapCanvas();
+        // Al volver de otra app (o de apagar la pantalla) el WebView pudo
+        // quedar dibujando por CPU: se mide y, si hace falta, se recarga.
+        Restart.scheduleCheck('volver');
       }
     });
     window.addEventListener('pagehide', settleIfDead);
@@ -538,10 +434,9 @@ const Game = (() => {
     // rehace al recuperarlo. Chrome/WebView 99+ emiten estos eventos.
     canvas.addEventListener('contextrestored', refreshSurface);
 
-    // Anuncio a pantalla completa: la música se calla mientras se ve (se
-    // mezclaba con el audio del anuncio) y, al cerrarse, se estrena un
-    // lienzo nuevo, porque el viejo puede quedar pintando por CPU. La
-    // página no pasa a oculta durante el anuncio: no basta visibilitychange.
+    // Anuncio a pantalla completa: no se dibuja ni suena nada mientras se
+    // ve (competía con el vídeo por la GPU y la música se mezclaba con su
+    // audio) y, al cerrarse, se comprueba si el WebView quedó degradado.
     if (typeof Ads !== 'undefined' && Ads.onAdScreen) {
       Ads.onAdScreen(
         () => {
@@ -551,19 +446,28 @@ const Game = (() => {
         () => {
           adScreenOpen = false;
           Music.resumeFrom('anuncio');
-          setTimeout(swapCanvas, AD_CLOSE_SWAP_DELAY_MS);
+          // Mientras el anuncio tapa la app la página NO pasa a oculta,
+          // así que aquí no llega visibilitychange: se mide desde aquí.
+          Restart.scheduleCheck('anuncio');
         }
       );
     }
 
+    Restart.configure({ snapshot: snapshotRun, safe: restartIsSafe });
+
     resize();
     state = createState(MODES.MENU);
-    if (Leaderboard.getPlayer()) {
-      showMenu();
-    } else {
-      showWelcome();
+    // Si la página se acaba de recargar a mitad de partida (ver
+    // js/restart.js), se retoma donde iba.
+    if (!restoreRun(Restart.takeSnapshot())) {
+      if (Leaderboard.getPlayer()) {
+        showMenu();
+      } else {
+        showWelcome();
+      }
+      Background.reset(viewW, viewH);
     }
-    Background.reset(viewW, viewH);
+    Restart.boot();
   }
 
   // Vuelve a pintar los textos dinámicos según el idioma actual.
@@ -745,10 +649,22 @@ const Game = (() => {
     return CONFIG.COINS.PER_AD;
   }
 
+  // Envuelve un flujo de anuncio completo (mostrar + confirmar en el
+  // servidor + acreditar). Mientras dure, js/restart.js no recarga.
+  async function withAdFlow(fn, ...args) {
+    adFlows += 1;
+    try {
+      return await fn(...args);
+    } finally {
+      adFlows -= 1;
+    }
+  }
+
   // Insignia de monedas del menú: ver un anuncio a cambio de monedas.
   // Exige cuenta porque el tope diario de anuncios es POR CUENTA y un
   // invitado no se puede identificar en el servidor.
-  async function verAnuncioPorMonedas() {
+  const verAnuncioPorMonedas = () => withAdFlow(verAnuncioPorMonedasFlow);
+  async function verAnuncioPorMonedasFlow() {
     if (!adsAvailable()) {
       window.alert(I18n.t('shopAdsSoon'));
       return;
@@ -758,18 +674,24 @@ const Game = (() => {
       return;
     }
     const res = await Ads.showRewarded();
+    const earned = res && res.ok ? acreditarMonedasDeAnuncio() : 0;
+    // La recompensa llega con el anuncio aún en pantalla, y un alert en ese
+    // momento congelaba el propio anuncio: su X dejaba de responder. Los
+    // avisos esperan a que se cierre (ver Ads.afterAdScreen).
+    await Ads.afterAdScreen();
     if (!res || !res.ok) {
       const code = res ? res.code : 'no_disponible';
       window.alert(I18n.t(code === 'limite_diario' ? 'adLimit' : 'adFail'));
       return;
     }
-    window.alert(I18n.t('adCoinsOk', { n: acreditarMonedasDeAnuncio() }));
+    window.alert(I18n.t('adCoinsOk', { n: earned }));
   }
 
   // Ver un anuncio desde la tienda para avanzar hacia las skins épicas.
   // Reutiliza la línea de estado del canje: es el mismo sitio de la
   // pantalla y el jugador ya sabe mirar ahí.
-  async function watchAdForSkin(btn) {
+  const watchAdForSkin = (btn) => withAdFlow(watchAdForSkinFlow, btn);
+  async function watchAdForSkinFlow(btn) {
     const antes = btn.textContent;
     btn.disabled = true;
     btn.textContent = I18n.t('reviveLoading');
@@ -1212,11 +1134,6 @@ const Game = (() => {
     if (typeof Ads !== 'undefined') Ads.setPreloadAllowed(false);
     state = createState(MODES.PLAYING);
     sparks = [];
-    // Si la calidad bajó, la partida nueva vuelve a probar la normal con un
-    // lienzo nuevo. Si no, basta con reajustar el de siempre: estrenar lienzo
-    // tiene un coste en la GPU y solo se hace con motivo (al volver de un
-    // anuncio o de otra app, o al medir lentitud; ver swapCanvas).
-    if (!trySurfaceRecovery()) refreshSurface();
     restartFrameMeasure();
     lastShownMeters = -1;
     dom.menu.classList.add('hidden');
@@ -1231,6 +1148,80 @@ const Game = (() => {
     dom.distance.classList.toggle('hard', Modes.get().key === 'hard');
     dom.distance.classList.toggle('hardcore', Modes.get().key === 'hardcore');
     dom.distance.textContent = '0 m';
+  }
+
+  // --- Recarga por dibujo degradado (ver js/restart.js) -----------------
+
+  // ¿Se puede recargar ahora sin que el jugador pierda nada? Nunca con un
+  // anuncio en curso (se perdería la recompensa), con envíos al servidor a
+  // medias (ranking, monedas) ni con la partida muerta: la oferta de revivir
+  // y el fin de partida esperan a que el jugador siga. Fuera de la partida,
+  // solo desde el menú principal: en el login se perdería lo tecleado.
+  function restartIsSafe() {
+    if (adFlows > 0 || reviveAdInProgress || adScreenOpen) return false;
+    if (typeof Remote !== 'undefined' && Remote.busy()) return false;
+    if (!state) return false;
+    if (state.mode === MODES.PLAYING) return true;
+    return state.mode === MODES.MENU && !dom.menu.classList.contains('hidden');
+  }
+
+  // La partida en curso, para retomarla tras recargar. Todo el estado es
+  // JSON plano (números, textos y listas).
+  function snapshotRun() {
+    if (!state || state.mode !== MODES.PLAYING) return null;
+    return { modo: Modes.get().key, state };
+  }
+
+  function isNum(value) {
+    return typeof value === 'number' && Number.isFinite(value);
+  }
+
+  // Lo guardado viene de sessionStorage: se comprueba lo imprescindible
+  // para simular y dibujar antes de fiarse de ello.
+  function validRun(s) {
+    return Boolean(
+      s && isNum(s.worldX) && isNum(s.camY) && isNum(s.speed) && isNum(s.time)
+      && s.player && isNum(s.player.worldY) && isNum(s.player.vy)
+      && s.track && Array.isArray(s.track.points) && s.track.points.length >= 2
+      && Array.isArray(s.track.segments) && isNum(s.track.generatedUntil)
+      && isNum(s.track.pointsUntil) && isNum(s.track.lastY)
+      && s.obstacles && Array.isArray(s.obstacles.list)
+      && isNum(s.obstacles.nextWreckX) && isNum(s.obstacles.cartTimer)
+    );
+  }
+
+  // Retoma la partida guardada antes de recargar. Vuelve congelada en
+  // "toca para continuar", igual que tras revivir: el jugador decide
+  // cuándo sigue. Devuelve false si no había nada válido que retomar.
+  function restoreRun(snap) {
+    if (!snap) return false;
+    const mode = Modes.byKey(snap.modo);
+    if (mode.key !== snap.modo || !validRun(snap.state)) return false;
+    Modes.set(mode);
+    resize();
+    if (typeof Ads !== 'undefined') Ads.setPreloadAllowed(false);
+    state = {
+      ...createState(MODES.PLAYING),
+      ...snap.state,
+      mode: MODES.PLAYING,
+      settled: false,
+      frozen: true,
+      frozenAt: performance.now(),
+      best: loadBest(mode.storageKey),
+    };
+    sparks = [];
+    lastShownMeters = -1;
+    restartFrameMeasure();
+    Background.reset(viewW, viewH);
+    Background.syncToWorld(state.worldX);
+    Music.setTempo(mode.musicTempo);
+    dom.hud.classList.remove('hidden');
+    dom.distance.classList.toggle('hard', mode.key === 'hard');
+    dom.distance.classList.toggle('hardcore', mode.key === 'hardcore');
+    dom.distance.textContent = `${meters()} m`;
+    dom['resume-hint'].classList.remove('hidden');
+    Diag.log('partida-restaurada');
+    return true;
   }
 
   // Cierra la partida: récord, monedas y envío al ranking. Se ejecuta
@@ -1301,7 +1292,8 @@ const Game = (() => {
     showGameOver();
   }
 
-  async function acceptRevive() {
+  const acceptRevive = () => withAdFlow(acceptReviveFlow);
+  async function acceptReviveFlow() {
     if (!reviveOfferOpen() || state.revived) return;
     dom['rv-yes'].disabled = true;
     dom['rv-yes'].textContent = I18n.t('reviveLoading');
@@ -1409,13 +1401,10 @@ const Game = (() => {
     dom['resume-hint'].classList.remove('hidden');
   }
 
-  // Rehace la superficie de dibujo. Tras un anuncio a pantalla completa,
-  // el WebView de Android puede dejar el lienzo sin aceleración por GPU:
-  // la partida se arrastraba, y también todas las siguientes con
-  // "reintentar". Solo se arreglaba con "cambiar modo", porque start()
-  // llama a resize(), y asignar canvas.width crea el lienzo de nuevo
-  // aunque el tamaño sea el mismo. Las texturas del fondo se rehacen
-  // también, porque las viejas pertenecían a la superficie anterior.
+  // Rehace la superficie de dibujo cuando el navegador devuelve un lienzo
+  // que había perdido (contextrestored). Las texturas del fondo se rehacen
+  // también, porque las viejas pertenecían a la superficie anterior. La
+  // lentitud tras un anuncio NO se arregla así: ver js/restart.js.
   function refreshSurface() {
     Diag.log('surface');
     resize();
@@ -1430,7 +1419,9 @@ const Game = (() => {
     if (performance.now() - since < UNFREEZE_GRACE_MS) return;
     state.frozen = false;
     dom['resume-hint'].classList.add('hidden');
-    refreshSurface();
+    // Tras restaurar la partida (ver js/restart.js) la música no pudo
+    // arrancar sola: el navegador exige un toque antes de sonar.
+    Music.start(Modes.get().musicTempo);
     restartFrameMeasure();
   }
 
@@ -1768,7 +1759,7 @@ const Game = (() => {
   }
 
   return {
-    diagInfo, isRenderPaused, newSurface: trySurfaceRecoveryManual, setup, resize, handleAction,
+    diagInfo, isRenderPaused, forceRestart: () => Restart.force(), setup, resize, handleAction,
     handleRelease, start, update, render,
     reportFrame, debugState,
   };

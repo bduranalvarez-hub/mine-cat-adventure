@@ -92,6 +92,9 @@
     // El tiempo SIN acotar es el único que sirve para medir el
     // rendimiento real: dt está topado a 1/30 s y no distingue 30 fps
     // de 5. Ver la calidad adaptativa en js/game.js.
+    // Tras un anuncio o al volver del fondo, js/restart.js mide si el
+    // WebView quedó pintando por CPU y, si es así, recarga la página.
+    Restart.feed(crudo);
     Game.reportFrame(crudo);
     const t0 = performance.now();
     Game.update(dt);

@@ -267,6 +267,16 @@ const Background = (() => {
     }
   }
 
+  // Pone el mineral que corresponde a esa posición, sin fundido. Al restaurar
+  // una partida tras recargar la página (ver js/restart.js) el fondo vuelve
+  // a empezar por el primer mineral y, sin esto, se vería el fundido.
+  function syncToWorld(worldX) {
+    const tier = tierIndexFor(worldX / CONFIG.UNITS_PER_METER);
+    shownTier = tier;
+    nextTier = tier;
+    fade = 1;
+  }
+
   function wallGradient(ctx, viewH) {
     const a = ORE_TIERS[shownTier].wall;
     const b = ORE_TIERS[nextTier].wall;
@@ -566,5 +576,5 @@ const Background = (() => {
     prepareTiles();
   }
 
-  return { reset, draw, drawVignette, setLowQuality, setUltraLow, invalidate };
+  return { reset, draw, drawVignette, setLowQuality, setUltraLow, invalidate, syncToWorld };
 })();

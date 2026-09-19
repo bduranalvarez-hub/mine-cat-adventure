@@ -16,6 +16,7 @@
 const Diag = (() => {
   const KEY = 'mca-diag';
   const KEY_NO_PRELOAD = 'mca-diag-nopreload';
+  const KEY_EVENTS = 'mca-diag-events';
   const LONG_PRESS_MS = 2000;
   const REFRESH_MS = 1000;
   const MAX_EVENTS = 8;
@@ -41,6 +42,10 @@ const Diag = (() => {
   try {
     enabled = localStorage.getItem(KEY) === '1';
   } catch (err) { /* sin almacenamiento: queda apagado */ }
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(KEY_EVENTS) || '[]');
+    if (Array.isArray(saved)) events = saved.slice(-MAX_EVENTS).map(String);
+  } catch (err) { /* sin sucesos previos */ }
 
   function now() {
     return performance.now();
@@ -59,6 +64,11 @@ const Diag = (() => {
     if (what === 'surface') counters.surfaceRefresh += 1;
     events.push(`${stamp()} ${what} (${lastFps} fps)`);
     if (events.length > MAX_EVENTS) events = events.slice(-MAX_EVENTS);
+    // Se conservan al recargar la página (ver js/restart.js): si no, el
+    // panel nunca mostraría por qué se recargó ni si sirvió.
+    try {
+      sessionStorage.setItem(KEY_EVENTS, JSON.stringify(events));
+    } catch (err) { /* sin almacenamiento: solo en memoria */ }
   }
 
   // Experimento: sin precarga, el anuncio solo se descarga al pedirlo.
@@ -111,11 +121,11 @@ const Diag = (() => {
       b.textContent = `auto-calidad: ${autoQualityOn ? 'SÍ' : 'NO'}`;
     });
 
-    const lienzo = makeButton('lienzo nuevo', () => {
-      if (typeof Game !== 'undefined' && Game.newSurface) Game.newSurface();
+    const recargar = makeButton('recargar', () => {
+      if (typeof Game !== 'undefined' && Game.forceRestart) Game.forceRestart();
     });
 
-    fila.append(preload, auto, lienzo);
+    fila.append(preload, auto, recargar);
 
     const capas = document.createElement('div');
     capas.className = 'diag-row';

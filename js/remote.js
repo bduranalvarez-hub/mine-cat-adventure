@@ -15,6 +15,9 @@ const RemoteConfig = Object.freeze({
 
 const Remote = (() => {
   const TIMEOUT_MS = 6000;
+  // Peticiones en vuelo. Mientras haya alguna no se recarga la página (ver
+  // js/restart.js): se cortaría, p. ej., el envío de la marca al ranking.
+  let inFlight = 0;
 
   function enabled() {
     return Boolean(RemoteConfig.url && RemoteConfig.anonKey);
@@ -31,7 +34,15 @@ const Remote = (() => {
   function withTimeout(promiseFactory) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-    return promiseFactory(ctrl.signal).finally(() => clearTimeout(timer));
+    inFlight += 1;
+    return new Promise((resolve) => resolve(promiseFactory(ctrl.signal))).finally(() => {
+      clearTimeout(timer);
+      inFlight -= 1;
+    });
+  }
+
+  function busy() {
+    return inFlight > 0;
   }
 
   // Envía una puntuación vía RPC submit_score, que mantiene UNA sola
@@ -273,6 +284,6 @@ const Remote = (() => {
 
   return {
     enabled, submit, top, authAccount, syncAccount, deleteAccount, redeemCode,
-    recordAdWatch, adStatus,
+    recordAdWatch, adStatus, busy,
   };
 })();

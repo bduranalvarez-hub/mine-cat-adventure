@@ -1060,3 +1060,18 @@ body {
 .diag-btn.off {
   background: #ff9b7a;
 }
+
+/* Aviso mientras la página se recarga para recuperar la fluidez (ver
+   js/restart.js). Tapa todo y se traga los toques de esos instantes. */
+.restart-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1a0f08;
+  color: #a98a63;
+  font-size: 22px;
+  letter-spacing: 1px;
+}
