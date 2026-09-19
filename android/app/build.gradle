@@ -20,6 +20,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 25
         versionName "1.23"
+        // ID de aplicación REAL de AdMob (ver AndroidManifest.xml).
+        manifestPlaceholders = [admobAppId: "ca-app-pub-6167652699679734~3912662521"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -38,6 +40,16 @@ android {
         }
     }
     buildTypes {
+        // App de DIAGNÓSTICO, solo para instalar por cable en el móvil de
+        // pruebas: otro paquete (convive con la de Play sin tocar sus datos),
+        // WebView depurable desde el PC y el ID de PRUEBA de Google en AdMob
+        // (ver en el móvil anuncios reales propios es tráfico inválido). Nunca
+        // se sube a Play.
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-diag"
+            manifestPlaceholders = [admobAppId: "ca-app-pub-3940256099942544~3347511713"]
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

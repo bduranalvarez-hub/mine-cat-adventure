@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Nombre de la app de diagnóstico (build debug), para no confundirla con
+     la de Play en el móvil de pruebas. -->
+<resources>
+    <string name="app_name">Mine Cat DIAG</string>
+    <string name="title_activity_main">Mine Cat DIAG</string>
+</resources>

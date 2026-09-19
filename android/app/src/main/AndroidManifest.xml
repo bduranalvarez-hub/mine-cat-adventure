@@ -34,10 +34,13 @@
              Es el ID de aplicacion REAL de la cuenta de AdMob y debe ser
              de la misma cuenta que el REWARDED_ID de js/ads.js: el SDK
              falla si no coinciden. Se distingue del ad unit por la
-             virgulilla (~) en vez de la barra (/). -->
+             virgulilla (~) en vez de la barra (/).
+             El valor sale de manifestPlaceholders (android/app/build.gradle):
+             el REAL en release y el de PRUEBA de Google en la app de
+             diagnóstico (debug). -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-6167652699679734~3912662521" />
+            android:value="${admobAppId}" />
     </application>
 
     <!-- Permissions -->
