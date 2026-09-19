@@ -78,6 +78,13 @@
 
   let lastTime = performance.now();
   function frame(now) {
+    // Con un anuncio a pantalla completa no se actualiza ni se dibuja:
+    // ver Game.isRenderPaused().
+    if (Game.isRenderPaused()) {
+      lastTime = now;
+      requestAnimationFrame(frame);
+      return;
+    }
     const crudo = now - lastTime;
     // Limita dt para evitar saltos enormes al volver de segundo plano.
     const dt = Math.min(crudo / 1000, 1 / 30);

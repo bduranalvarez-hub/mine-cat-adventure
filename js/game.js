@@ -25,7 +25,15 @@ const Game = (() => {
   const UNFREEZE_GRACE_MS = 400;
   // Espera tras cerrarse el anuncio antes de estrenar el lienzo nuevo: el
   // WebView tarda un instante en volver a pintar.
-  const AD_CLOSE_SWAP_DELAY_MS = 250;
+  const AD_CLOSE_SWAP_DELAY_MS = 500;
+  // Con un anuncio en pantalla no se dibuja NADA. La página no pasa a oculta
+  // en Android, así que el bucle seguía dibujando a 60 fps detrás del vídeo
+  // (el panel registraba "ad-reward (58 fps)") y competía con él por la
+  // GPU; al volver, el juego quedaba lento. Ver main.js.
+  let adScreenOpen = false;
+  function isRenderPaused() {
+    return adScreenOpen;
+  }
   // Segundos mínimos de riel sin huecos por delante al reanudar tras
   // revivir. Medido con 5 revivires: sin esto el primer hueco llegaba
   // entre 0,8 y 1,8 s después de reanudar, sin tiempo real de reacción.
@@ -98,9 +106,23 @@ const Game = (() => {
     Track.setCheap(value);
   }
 
+  // Si la calidad bajó, dentro de la MISMA partida se vuelve a probar la
+  // normal cuando haya pasado este tiempo: lo que la hizo bajar (la GPU
+  // saturada al volver de un anuncio) se pasa solo a los pocos segundos, y
+  // esperar a la partida siguiente dejaba toda la carrera con mala calidad.
+  const MID_RUN_RETRY_MS = 10000;
+  let degradedAt = 0;
+
+  function maybeRecoverMidRun() {
+    if (!state || state.mode !== MODES.PLAYING || state.frozen) return;
+    if (performance.now() - degradedAt < MID_RUN_RETRY_MS) return;
+    if (trySurfaceRecovery()) restartFrameMeasure();
+  }
+
   function setUltraLow() {
     if (ultraLow) return;
     ultraLow = true;
+    degradedAt = performance.now();
     applyCheap(true);
     Diag.log(onTrial ? 'prueba-fallida' : 'ultraligero');
     onTrial = false;
@@ -110,6 +132,7 @@ const Game = (() => {
   function setLowQuality() {
     if (lowQuality) return;
     lowQuality = true;
+    degradedAt = performance.now();
     Background.setLowQuality(true);
     Diag.log('calidad-baja');
     resize();
@@ -177,7 +200,13 @@ const Game = (() => {
     // se toca nada: así se puede medir el problema sin que se disimule.
     if (!Diag.autoQuality()) return;
     // Congelada tras revivir no se está jugando: no hay carga que medir.
-    if (ultraLow || !state || state.mode !== MODES.PLAYING || state.frozen) return;
+    if (!state || state.mode !== MODES.PLAYING || state.frozen) return;
+    // En el escalón más bajo no queda nada que bajar: solo se espera el
+    // momento de volver a probar la calidad normal.
+    if (ultraLow) {
+      maybeRecoverMidRun();
+      return;
+    }
     // Descarta valores absurdos: pestaña en segundo plano, depurador
     // detenido o el primer fotograma tras volver de otra app.
     if (!Number.isFinite(ms) || ms <= 0 || ms > 1000) return;
@@ -200,6 +229,8 @@ const Game = (() => {
       if (onTrial) {
         onTrial = false;
         Diag.log('prueba-superada');
+      } else if (lowQuality) {
+        maybeRecoverMidRun();
       }
       return;
     }
@@ -513,8 +544,12 @@ const Game = (() => {
     // página no pasa a oculta durante el anuncio: no basta visibilitychange.
     if (typeof Ads !== 'undefined' && Ads.onAdScreen) {
       Ads.onAdScreen(
-        () => Music.pauseFor('anuncio'),
         () => {
+          adScreenOpen = true;
+          Music.pauseFor('anuncio');
+        },
+        () => {
+          adScreenOpen = false;
           Music.resumeFrom('anuncio');
           setTimeout(swapCanvas, AD_CLOSE_SWAP_DELAY_MS);
         }
@@ -1733,7 +1768,7 @@ const Game = (() => {
   }
 
   return {
-    diagInfo, newSurface: trySurfaceRecoveryManual, setup, resize, handleAction,
+    diagInfo, isRenderPaused, newSurface: trySurfaceRecoveryManual, setup, resize, handleAction,
     handleRelease, start, update, render,
     reportFrame, debugState,
   };
